@@ -42,6 +42,7 @@ Los lectores hispanohablantes interesados en Apple hoy navegan entre medios gene
 | 2026-05-24 | 0.6     | Sección 5 Epic List (6 épicas secuenciales del MVP)   | Morgan |
 | 2026-05-24 | 0.7     | Sección 6 — Epic 1 Foundation & Canary (stories + AC) | Morgan |
 | 2026-05-24 | 0.8     | Sección 6 — Epic 2 Editorial Core (Posts + Render)    | Morgan |
+| 2026-05-24 | 0.9     | Sección 6 — Epic 3 Public Site UX & SEO               | Morgan |
 
 ---
 
@@ -704,6 +705,183 @@ La promesa visceral al lector: *"acá puedo enterarme sin ser bombardeado, y pue
 - **Lo que NO entra en Epic 2:** TOC, lecturas relacionadas, RSS, sitemap, OG/Twitter, schema.org, búsqueda, autor page, categoría page, tag page — todo eso es Epic 3.
 
 ---
+
+### Epic 3 — Public Site UX & SEO
+
+**Expanded Goal:** Convertir el "MVP de artículo aislado" en un blog navegable, descubrible e indexable end-to-end. Completar header/footer con navegación taxonómica, páginas de listado (categoría, tipo, tag, autor), búsqueda con Postgres FTS, mejoras de UX en la página de artículo (TOC, related, share), SEO técnico completo (meta + OG + Twitter Cards + JSON-LD schema.org + sitemap + robots + canonical), feeds RSS, y publicar las páginas estáticas obligatorias (`/about`, `/contacto`, páginas legales y `/etica-editorial` con placeholder editorial). Al cerrar esta épica el blog está listo para empezar a generar tráfico orgánico real.
+
+#### URL conventions (formalizadas en este Epic)
+
+Patrón asumido (default sin objeción del dueño en el checkpoint de Epic 2):
+
+- Artículo individual: `/articulo/[slug]`
+- Categoría: `/categoria/[slug]` (ej. `/categoria/iphone`)
+- Tipo de contenido: `/tipo/[slug]` (ej. `/tipo/analisis`)
+- Tag: `/tag/[slug]`
+- Autor: `/autor/[slug]`
+- Búsqueda: `/buscar?q=...`
+- Páginas estáticas: `/about`, `/contacto`, `/etica-editorial`, `/politica-de-privacidad`, `/aviso-legal`, `/politica-de-afiliados`
+- Newsletter (archivo): `/newsletter` y `/newsletter/[slug]` (se cierra en Epic 4)
+
+Estos paths se confirman al inicio del Epic 3; cambiarlos después implica trabajo de redirects (301) y actualización de sitemap.
+
+#### Story 3.1 — Header + footer + navegación móvil
+
+**As a** lector,
+**I want** un header consistente con navegación por categoría y un menú móvil claro, más un footer con links útiles,
+**so that** puedo desplazarme por el blog en cualquier dispositivo sin perderme.
+
+**Acceptance Criteria:**
+
+1. Header sticky con: logo (placeholder), navegación principal por categoría Apple (iPhone, Mac, iPad, Watch, Vision, Servicios), enlace a "Análisis", "Tutoriales", "Newsletter", botón de búsqueda (abre overlay/modal), toggle claro/oscuro.
+2. En móvil: hamburger menu colapsable con la misma jerarquía + atajo al footer.
+3. Footer con: links a páginas estáticas (`/about`, `/etica-editorial`, `/politica-de-privacidad`, `/aviso-legal`, `/politica-de-afiliados`, `/contacto`), bloque de suscripción a newsletter (preparado, formulario real llega en Epic 4 como upgrade), copyright, año actual.
+4. Navegación construida desde las collections `Categories` y `ContentTypes` (no hardcoded — si se agrega una categoría desde admin, aparece automáticamente).
+5. Estado activo visible (current section resaltada).
+6. Cumple WCAG AA: keyboard navegable, ARIA labels, focus visible.
+
+#### Story 3.2 — Páginas de listado por taxonomía (categoría + tipo + tag)
+
+**As a** lector,
+**I want** ver el listado paginado de artículos de una categoría, tipo o tag,
+**so that** puedo profundizar en un tema específico.
+
+**Acceptance Criteria:**
+
+1. Componente reutilizable `TermListingPage` que recibe el término (categoría/tipo/tag), su descripción y la query de posts asociados.
+2. Rutas implementadas: `/categoria/[slug]`, `/tipo/[slug]`, `/tag/[slug]`.
+3. Header de la página: nombre del término + descripción + total de artículos.
+4. Listado paginado (12 por página) con cards (featured image, título, excerpt, categoría, fecha, autor avatar pequeño).
+5. Paginación con `?page=N` (compatible con crawlers) o scroll infinito con fallback paginado SSR.
+6. ISR con revalidate adecuado (60-300 s) o on-demand on publish.
+7. Estado vacío: si no hay artículos publicados aún, mensaje "Pronto habrá contenido en esta categoría".
+8. SEO básico por listado: `title`, `description`, canonical (los OG/JSON-LD se completan en Story 3.6).
+9. Slug inválido → 404 personalizado.
+
+#### Story 3.3 — Página de autor (`/autor/[slug]`)
+
+**As a** lector,
+**I want** ver la página de un autor con su bio, avatar y listado de sus artículos,
+**so that** entiendo quién firma el contenido y confío en su autoridad editorial.
+
+**Acceptance Criteria:**
+
+1. Ruta `/autor/[slug]` renderiza header con avatar grande, nombre, bio, links sociales.
+2. Listado de artículos del autor paginado (12 por página).
+3. Reutiliza el componente de cards del Story 3.2.
+4. Estado vacío si el autor no tiene artículos publicados aún.
+5. SEO básico (Person schema se agrega en Story 3.6).
+6. Slug inválido → 404.
+
+#### Story 3.4 — Mejoras de la página de artículo: TOC + relacionados + share extendido
+
+**As a** lector,
+**I want** una tabla de contenidos navegable, lista de lecturas relacionadas y opciones de compartir extendidas en la página de artículo,
+**so that** puedo orientarme dentro de artículos largos y descubrir más contenido relevante.
+
+**Acceptance Criteria:**
+
+1. TOC auto-generada a partir de los headings H2/H3 del body Lexical. Sticky en desktop (sidebar), colapsable en móvil (botón flotante o accordion).
+2. Resaltado del heading activo según scroll (scroll-spy).
+3. Bloque "Lecturas relacionadas" al final del artículo: 3-4 posts elegidos por relevancia (misma categoría + misma etiqueta), excluyendo el actual; cards uniformes.
+4. Share extendido: botones para X, WhatsApp, Facebook, copiar enlace (con feedback visual al copiar).
+5. Web Share API en móvil con fallback en desktop (el mismo de Story 2.9, pero ahora con todas las redes).
+6. Progress bar de lectura sutil en el top (ya implementable, opcional refinable).
+7. A11y: skip-links, ARIA en TOC, labels en botones share.
+
+#### Story 3.5 — Búsqueda con Postgres FTS
+
+**As a** lector,
+**I want** una búsqueda por texto libre que devuelva artículos relevantes con snippet del match,
+**so that** puedo encontrar contenido específico sin depender solo de Google.
+
+**Acceptance Criteria:**
+
+1. Endpoint API server-side `/api/search?q=...` que consulta Postgres FTS (`tsvector`/`tsquery`) sobre `title`, `excerpt` y `body` de posts `published`.
+2. Soporte para acentos y plurales básicos (configuración `spanish` de Postgres).
+3. Indices GIN creados en migración Payload (o script SQL adyacente).
+4. Ranking por relevancia (`ts_rank`).
+5. Snippet con highlight del término en los resultados (max 200 chars contextuales).
+6. Página `/buscar?q=...` muestra resultados paginados (12 por página) o "Sin resultados para '...'".
+7. Overlay de búsqueda accesible desde el header (Story 3.1) con sugerencias simples (últimas búsquedas almacenadas en `localStorage`, opcional MVP).
+8. Rate-limiting en `/api/search` (60 req/min por IP).
+9. Logs de queries (anonimizadas) para entender qué buscan los usuarios.
+
+#### Story 3.6 — SEO técnico avanzado: meta + Open Graph + Twitter Cards + JSON-LD schema.org
+
+**As a** dueño,
+**I want** que cada página y artículo tenga meta-tags completos, OG/Twitter Cards bien formados y JSON-LD schema.org (Article, BreadcrumbList, Person, Organization),
+**so that** Google, Bing, X y previews en WhatsApp/Slack rendericen el contenido correctamente y los snippets de búsqueda sean ricos.
+
+**Acceptance Criteria:**
+
+1. En cada ruta pública, `<head>` incluye: `<title>`, `<meta name="description">`, `<link rel="canonical">`, `<meta property="og:*">` (title, description, image, type, url, site_name), `<meta name="twitter:*">` (card, title, description, image, site).
+2. JSON-LD en home: `WebSite` + `Organization`.
+3. JSON-LD en artículo: `Article` (con `author` linked a `Person`, `publisher` a `Organization`, `image`, `datePublished`, `dateModified`) + `BreadcrumbList`.
+4. JSON-LD en categoría/tipo/tag/autor: `CollectionPage` + `BreadcrumbList`.
+5. Open Graph image por artículo: usa `featuredImage`; fallback a OG image global.
+6. Validar con [Rich Results Test de Google](https://search.google.com/test/rich-results) y [Twitter Card Validator] (o equivalente actual) en al menos una página de cada tipo.
+7. Configuración global de SEO accesible desde admin: site name, default description, default OG image, Twitter handle.
+
+#### Story 3.7 — sitemap.xml dinámico + robots.txt + canonical
+
+**As a** dueño,
+**I want** un sitemap XML actualizado automáticamente y un robots.txt correcto,
+**so that** los buscadores indexan todo el contenido publicable y nada más.
+
+**Acceptance Criteria:**
+
+1. `/sitemap.xml` dinámico generado en build/ISR, incluye: home, todos los artículos `published`, todas las páginas de categoría/tipo/tag/autor con al menos un post, páginas estáticas.
+2. Cada `<url>` incluye `<lastmod>` (basado en `updatedAt` del post o página).
+3. `/robots.txt` permite indexar el público y bloquea `/admin/*`, `/preview/*`, `/api/*` (excepto `/api/sitemap` si aplica).
+4. Canonical URLs apuntando al dominio canónico (en MVP: el `*.vercel.app` de producción).
+5. Sitemap dividido si supera 50k URLs (no aplica en MVP pero queda preparado).
+
+#### Story 3.8 — RSS feeds (global + por categoría)
+
+**As a** lector power-user,
+**I want** suscribirme al blog vía RSS (global o por categoría),
+**so that** puedo leerlo desde Reeder/Feedly sin pasar por el sitio.
+
+**Acceptance Criteria:**
+
+1. Feed global en `/rss.xml` con los últimos 50 posts `published`.
+2. Feed por categoría en `/categoria/[slug]/rss.xml` (los últimos 50 de esa categoría).
+3. Cada item del feed incluye: title, link, description (excerpt), author, pubDate, category, content:encoded (HTML del body sanitizado).
+4. Feed validado contra [W3C Feed Validator] al cerrar la story.
+5. Header HTML del sitio anuncia el feed via `<link rel="alternate" type="application/rss+xml" href="/rss.xml">`.
+6. Cache HTTP del feed con `Cache-Control: max-age=3600` (1h).
+
+#### Story 3.9 — StaticPages collection + páginas estáticas obligatorias
+
+**As a** dueño-editor,
+**I want** una collection `StaticPages` para crear y editar las páginas legales y editoriales desde admin sin tocar código,
+**so that** puedo actualizar políticas, sobre nosotros y contacto cuando necesito sin requerir un deploy.
+
+**Acceptance Criteria:**
+
+1. Collection `StaticPages` con campos: `title`, `slug` (único, no editable después de creado), `body` (richText Lexical reusando el config de Story 2.5), `metaTitle`, `metaDescription`, `updatedAt`.
+2. Slugs reservados (no eliminables, no slug-editables) creados en seed: `about`, `etica-editorial`, `politica-de-privacidad`, `aviso-legal`, `politica-de-afiliados`, `contacto`.
+3. Cada slug reservado tiene contenido placeholder editable ("Próximamente — sección en construcción").
+4. Ruta dinámica `/[slug]` resuelve primero contra StaticPages (con prioridad sobre artículos para los slugs reservados — fence explícito en routing).
+5. Render usa un layout simple (sin TOC, sin related), con tipografía editorial idéntica al artículo.
+6. SEO mínimo (meta básico — JSON-LD opcional).
+7. La página `/contacto` puede incluir información estática + (opcional MVP) un mailto. Formulario interactivo se difiere a Fase 2.
+8. El contenido editorial-real de `/etica-editorial` (políticas concretas de IA, afiliados, correcciones, autoría) se completa en **Epic 6 — Editorial Hardening**, dejando placeholder en este Epic.
+
+---
+
+#### Notas operativas de Epic 3
+
+- **URL conventions formalizadas:** se asume el patrón documentado al inicio del Epic. Cualquier cambio posterior implica redirects 301 y actualización de sitemap.
+- **Dependencias entre stories:** 3.1 (nav) habilita visualmente al resto. 3.2 / 3.3 son independientes entre sí. 3.4 (article enhancements) depende del render base de Epic 2 (Story 2.9). 3.5 (search) es ortogonal. 3.6 (SEO meta) depende de tener todas las rutas montadas → al final del Epic. 3.7 (sitemap) depende de 3.6 y 3.2/3.3. 3.8 (RSS) puede correr en paralelo a 3.7. 3.9 (StaticPages) es independiente.
+- **Stories paralelizables:** muchas combinaciones — el SM podrá hacer pairing/fanout durante sprint planning.
+- **Story candidata a sub-split:** 3.5 (búsqueda) — si el highlighting con snippets resulta complejo, partir en "search básico" + "snippet/ranking refinado".
+- **Lo que NO entra en Epic 3:** formulario funcional de contacto (Fase 2), búsqueda con autocomplete server-side (Fase 2 o cuando se evalúe Meilisearch), AMP, newsletter signup funcional (Epic 4), comentarios (Fase 2), monetización (Epic 5), hardening definitivo de seguridad/observabilidad (Epic 6).
+- **Riesgos abiertos de Epic 3:** AdSense puede demorar semanas en aprobar la cuenta — recomendación operativa: **iniciar el trámite de AdSense apenas Epic 3 esté en producción** con al menos 10-15 artículos publicados, para no bloquear Epic 5.
+
+---
+
 
 
 
