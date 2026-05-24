@@ -41,6 +41,7 @@ Los lectores hispanohablantes interesados en Apple hoy navegan entre medios gene
 | 2026-05-24 | 0.5     | Sección 4 Technical Assumptions (stack, repo, arquitectura, testing) | Morgan |
 | 2026-05-24 | 0.6     | Sección 5 Epic List (6 épicas secuenciales del MVP)   | Morgan |
 | 2026-05-24 | 0.7     | Sección 6 — Epic 1 Foundation & Canary (stories + AC) | Morgan |
+| 2026-05-24 | 0.8     | Sección 6 — Epic 2 Editorial Core (Posts + Render)    | Morgan |
 
 ---
 
@@ -538,6 +539,172 @@ La promesa visceral al lector: *"acá puedo enterarme sin ser bombardeado, y pue
 - **Riesgos abiertos de Epic 1:** ningún branding-sprint cerrado todavía — la paleta y tipografías de la Story 1.7 son placeholders, sustituibles cuando el branding cierre sin romper componentes.
 
 ---
+
+### Epic 2 — Editorial Core: Posts + Render
+
+**Expanded Goal:** Construir el corazón editorial del producto: modelar todas las collections necesarias para publicar contenido (Posts, Categories, Content Types, Tags, Authors, Media), implementar el editor rich-text Lexical con embeds, soportar el ciclo `draft → scheduled → published` con job de publicación programada, y renderizar públicamente el home con los últimos artículos y la página de artículo individual. Al cerrar esta épica, el dueño puede crear, programar y publicar un artículo desde el admin y verlo renderizado en producción con su imagen, autor y categoría.
+
+#### Story 2.1 — Collections de taxonomía (Categories + ContentTypes + Tags)
+
+**As a** dueño-editor,
+**I want** un sistema de taxonomía con categorías por producto Apple, tipos de contenido y tags libres,
+**so that** puedo clasificar consistentemente cada artículo y los lectores pueden navegar por afinidad temática.
+
+**Acceptance Criteria:**
+
+1. Collection `Categories` creada en Payload con campos: `name` (text, requerido), `slug` (text, único, auto-generado desde `name` pero editable), `description` (text), `order` (number, para ordenar visualmente).
+2. Collection `ContentTypes` creada con los mismos campos base; seedeada con los 6 tipos iniciales (noticia, rumor, análisis, tutorial, reseña, guía de compra).
+3. Collection `Tags` creada con `name`, `slug`. Tags se pueden crear inline desde el editor de Post.
+4. Categorías iniciales seedeadas: iPhone, Mac, iPad, Watch, Vision, Servicios (FR5).
+5. CRUD completo accesible desde admin sin tocar código (FR6).
+6. Slugs auto-generados con `slugify` (lowercase, sin acentos, kebab-case), validados como únicos.
+7. Borrado de una categoría/tipo en uso debe estar bloqueado o pedir confirmación de "qué hacer con los posts asociados".
+
+#### Story 2.2 — Collection Authors
+
+**As a** dueño-editor,
+**I want** modelar autores como entidad propia con bio, avatar y links sociales,
+**so that** cada artículo puede atribuirse correctamente y la página de autor exhibe la firma editorial.
+
+**Acceptance Criteria:**
+
+1. Collection `Authors` creada con: `name` (text, requerido), `slug` (text, único), `bio` (richText/textarea), `avatar` (upload), `email` (text, opcional, privado), `socialLinks` (array de `{platform, url}`).
+2. Author inicial seedeado (el dueño) con datos placeholder.
+3. CRUD completo desde admin.
+4. Relación 1-N preparada para asociar a Posts (definida formalmente en Story 2.4).
+5. Borrado de un autor con posts asociados está bloqueado o requiere reasignar.
+
+#### Story 2.3 — Media library con upload e integración Cloudinary
+
+**As a** dueño-editor,
+**I want** subir imágenes desde el admin y que se sirvan optimizadas automáticamente en AVIF/WebP responsive,
+**so that** los artículos cargan rápido sin que yo tenga que pre-procesar cada imagen manualmente.
+
+**Acceptance Criteria:**
+
+1. Collection `Media` configurada en Payload con storage en Cloudinary (vía adapter oficial o plugin equivalente).
+2. Upload desde admin acepta JPG, PNG, WebP, AVIF, GIF (≤10 MB inicial).
+3. Cloudinary genera derivados automáticos (resized + AVIF/WebP) que se referencian desde `next/image`.
+4. Campos editoriales por asset: `alt` (text, requerido para a11y), `caption` (text, opcional), `credit` (text, opcional para fotografías de terceros).
+5. Búsqueda por filename o alt-text en la media library del admin.
+6. URLs de Cloudinary con `f_auto,q_auto` (auto-format + auto-quality).
+7. Logs estructurados de cada upload (quién, qué, cuándo) — feed a Story 1.9.
+
+#### Story 2.4 — Collection Posts (estructura, ciclo de estados, relaciones, SEO básico)
+
+**As a** dueño-editor,
+**I want** una collection Posts completa que soporte borradores, programación y publicación con todos los campos editoriales y de SEO,
+**so that** tengo el modelo de datos completo para producir contenido sin limitaciones.
+
+**Acceptance Criteria:**
+
+1. Collection `Posts` creada con campos: `title` (text, requerido), `slug` (text, único, auto-generado pero editable), `excerpt` (text), `body` (richText Lexical — configurado en Story 2.5), `featuredImage` (relación a `Media`, requerida para `published`), `author` (relación a `Authors`, requerida), `category` (relación a `Categories`, requerida), `contentType` (relación a `ContentTypes`, requerida), `tags` (relación many a `Tags`), `status` (select: `draft`/`scheduled`/`published`/`archived`), `publishedAt` (date — para `published` y `scheduled`), `metaTitle` (text), `metaDescription` (text), `aiAssistedFlag` (checkbox interno — FR24), `updatedAt` (auto).
+2. Versionado habilitado en Payload (`versions: { drafts: true }`); permite ver historial y revertir a versión previa.
+3. Validación: para pasar a `published` o `scheduled`, los campos requeridos (`title`, `slug`, `body`, `featuredImage`, `author`, `category`, `contentType`, `publishedAt`) deben estar completos.
+4. Para `scheduled`, `publishedAt` debe ser una fecha futura.
+5. Slug auto-generado evergreen (sin fecha), editable manualmente, validado único.
+6. UI del admin agrupa campos en pestañas: "Contenido" (title, slug, excerpt, body, featuredImage), "Taxonomía" (category, contentType, tags, author), "SEO" (metaTitle, metaDescription), "Publicación" (status, publishedAt, aiAssistedFlag).
+7. Acción "Publicar ahora" desde admin (cambia status a `published` y setea `publishedAt = now`).
+
+#### Story 2.5 — Editor Lexical con embeds (imagen, YouTube, X/tweet, code block)
+
+**As a** dueño-editor,
+**I want** un editor rico Lexical que me permita insertar imágenes, embeds de YouTube y X, bloques de código con highlighting y formatear texto con titulares, listas, citas y enlaces,
+**so that** puedo producir artículos visualmente ricos sin escribir HTML ni Markdown a mano.
+
+**Acceptance Criteria:**
+
+1. Editor Lexical configurado en el field `body` de `Posts`.
+2. Bloques disponibles: headings H2/H3/H4, párrafo, lista no/ordenada, blockquote, link, inline-code, separator (HR).
+3. Bloque "Imagen" con selector de `Media` (relación, no upload inline) + caption + alt.
+4. Bloque "Embed YouTube" que acepta URL `youtu.be` o `youtube.com/watch`, parsea ID y renderiza iframe responsive (16:9, lazy-loaded).
+5. Bloque "Embed X" que acepta URL de tweet y renderiza via blockquote oficial de X (con fallback elegante si X bloquea el embed).
+6. Bloque "Code" con language selector (txt, js, ts, jsx, tsx, html, css, bash, json, sql) y syntax highlighting en el render público (Shiki o similar).
+7. Bloque "Aside / Callout" (cita/destacado) con variantes: info, warning, tip.
+8. Toolbar accesible (etiquetas, keyboard shortcuts típicos: Cmd+B negrita, Cmd+I cursiva, Cmd+K link).
+9. Sanitización: el output no permite `<script>`, atributos `on*=`, ni styles inline arbitrarios.
+
+#### Story 2.6 — Job de publicación programada
+
+**As a** dueño-editor,
+**I want** programar la publicación de un artículo para una fecha y hora exacta y que el sistema lo publique automáticamente sin que yo tenga que estar online,
+**so that** puedo trabajar en bloques de tiempo independientes del momento de publicación.
+
+**Acceptance Criteria:**
+
+1. Job recurrente configurado (Vercel Cron Job o equivalente, ejecución cada 5 min).
+2. El job consulta posts con `status='scheduled'` y `publishedAt <= now()`, los actualiza a `status='published'` y deja `publishedAt` intacto.
+3. Idempotencia: si el job corre dos veces sobre el mismo registro, no duplica nada.
+4. Si la publicación falla (DB caída, etc.), el job logs el error a Sentry y reintenta en el siguiente ciclo.
+5. El admin muestra una indicación visual cuando un post está `scheduled` (badge + fecha de publicación próxima).
+6. Tests unitarios cubren: scheduled-en-pasado se publica; scheduled-en-futuro no se toca; published no se reprocesa.
+7. Documentación operativa: cómo verificar manualmente que el cron está corriendo en Vercel.
+
+#### Story 2.7 — Preview de drafts con URL pública + token expirante
+
+**As a** dueño-editor,
+**I want** generar un URL único para previsualizar un borrador como si estuviera publicado, sin tener que loguearme,
+**so that** puedo compartir previews con colaboradores o revisarlo en otro dispositivo sin exponer el admin.
+
+**Acceptance Criteria:**
+
+1. Endpoint `/preview/[postId]?token=...` que renderiza un post en estado `draft` o `scheduled` con el mismo layout que el público.
+2. Token generado al hacer click en "Generar URL de preview" en el admin del post.
+3. Token TTL: 24h (configurable).
+4. Token de un solo post (no permite acceder a otros posts).
+5. Preview marcado visualmente como "PREVIEW — no publicado" (banner top sticky o similar).
+6. Rate-limiting en el endpoint para evitar enumeración (máx 60 req/hora por IP).
+7. Token revocable manualmente desde admin.
+
+#### Story 2.8 — Render público del home: hero + últimos artículos
+
+**As a** lector,
+**I want** entrar a `el-mate-digital.vercel.app` y ver el último artículo destacado en un hero + un listado de las últimas publicaciones,
+**so that** entiendo de qué va el blog y puedo entrar a leer.
+
+**Acceptance Criteria:**
+
+1. Ruta `/` (home) renderiza con ISR (revalidate cada 60 s o on-demand on publish).
+2. Hero: el post `published` más reciente, con featured image, título, excerpt, autor, categoría, fecha, link al artículo.
+3. Grid/list de los siguientes 10-12 posts publicados (cards compactas con featured image small, título, categoría, fecha).
+4. Soporte de "destacado editorial-curado": campo opcional `isFeatured` en Posts que prioriza ese post como hero por sobre el más reciente (preparación para Epic 3, podría implementarse acá si trivial).
+5. Modo claro y oscuro funcionando.
+6. Lighthouse mobile ≥ 90 (Performance, SEO, Accessibility).
+7. Cards usan `next/image` para imágenes con sizes correctos.
+8. Estados vacíos: si no hay posts publicados, el hero muestra "Próximamente: primer artículo en camino".
+
+#### Story 2.9 — Render público de la página de artículo
+
+**As a** lector,
+**I want** abrir un artículo y leerlo cómodamente con tipografía editorial, imagen destacada, autoría visible y embeds funcionando,
+**so that** disfruto la lectura y entiendo el contexto del artículo.
+
+**Acceptance Criteria:**
+
+1. Ruta `/articulo/[slug]` (o `/post/[slug]` — confirmar convención) sirve la página de artículo desde ISR.
+2. Layout: hero con título grande, subtítulo (excerpt), featured image, meta-info (autor + avatar + fecha + tiempo de lectura).
+3. Cuerpo renderiza el contenido Lexical aplicando todos los bloques de la Story 2.5 (incluido code highlighting, embeds YouTube/X, callouts).
+4. Tiempo de lectura calculado automáticamente desde la cuenta de palabras del body.
+5. Botones de compartir: copiar enlace, X, WhatsApp, Facebook (Web Share API en móvil con fallback en desktop).
+6. Modo claro y oscuro respetan los tokens de la Story 1.7.
+7. SEO básico: title = `${post.metaTitle || post.title} — El Mate Digital`, description = `${post.metaDescription || post.excerpt}` (el SEO avanzado con OG/Twitter/schema llega en Epic 3).
+8. 404 personalizado si el slug no existe o el post está en `draft`/`archived`.
+9. Lighthouse mobile ≥ 90 en una página de artículo real con imagen + embed.
+10. TOC, lecturas relacionadas, share extendido y schema.org se difieren a Epic 3 (mencionado explícitamente para no atascar este story).
+
+---
+
+#### Notas operativas de Epic 2
+
+- **Dependencias entre stories:** 2.1 (taxonomía) y 2.2 (Authors) y 2.3 (Media) son prerequisitos de 2.4 (Posts collection). 2.5 (editor) depende de 2.4. 2.6 (job) y 2.7 (preview) dependen de 2.4. 2.8 y 2.9 (renders) dependen de 2.4 y 2.5.
+- **Stories paralelizables si hay más de un dev:** 2.1 ∥ 2.2 ∥ 2.3, y luego 2.6 ∥ 2.7 ∥ 2.5 una vez 2.4 listo.
+- **Stories candidatas a sub-split:** 2.4 (Posts collection completa) es la más pesada — si supera 4h, partir en "2.4a Posts schema + status" + "2.4b SEO fields + admin UI tabs".
+- **Convención de URL de artículo:** propongo `/articulo/[slug]` (es-LATAM neutral) en vez de `/post/[slug]` (anglo) o `/blog/[slug]` (genérico). **Confirmar en este checkpoint.**
+- **`aiAssistedFlag` (FR24) implementado pero invisible al lector:** sólo metadato interno auditable por dueño.
+- **Lo que NO entra en Epic 2:** TOC, lecturas relacionadas, RSS, sitemap, OG/Twitter, schema.org, búsqueda, autor page, categoría page, tag page — todo eso es Epic 3.
+
+---
+
 
 
 
