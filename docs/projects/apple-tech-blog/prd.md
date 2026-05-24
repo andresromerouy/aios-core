@@ -45,6 +45,7 @@ Los lectores hispanohablantes interesados en Apple hoy navegan entre medios gene
 | 2026-05-24 | 0.9     | Sección 6 — Epic 3 Public Site UX & SEO               | Morgan |
 | 2026-05-24 | 0.10    | Sección 6 — Epic 4 Newsletter (Resend + doble opt-in) | Morgan |
 | 2026-05-24 | 0.11    | Sección 6 — Epic 5 Monetization (AdSense + afiliados + premium infra) | Morgan |
+| 2026-05-24 | 0.12    | Sección 6 — Epic 6 Editorial Hardening & Launch Polish | Morgan |
 
 ---
 
@@ -1158,6 +1159,157 @@ Estos paths se confirman al inicio del Epic 3; cambiarlos después implica traba
   - **CMP add-on cost:** Google Funding Choices es gratis; si querés migrar a Iubenda/Cookiebot con más control granular, hay costo mensual a evaluar en Fase 2.
 
 ---
+
+### Epic 6 — Editorial Hardening & Launch Polish
+
+**Expanded Goal:** Cerrar el MVP convirtiéndolo en un producto listo para soft-launch real: completar el contenido editorial-real de las páginas de políticas (especialmente `/etica-editorial`), endurecer la seguridad (CSP estricta, rate-limiting comprehensive, auditoría), exponer audit log en admin, refinar el dashboard con métricas operativas, agregar seed data realista, optimización final de performance/a11y, validar observabilidad y dejar runbooks operativos. Al cerrar esta épica, el blog puede invitar al público sin reservas.
+
+#### Story 6.1 — Contenido editorial-real de `/etica-editorial` + páginas legales
+
+**As a** dueño,
+**I want** que las páginas `/etica-editorial`, `/politica-de-privacidad`, `/aviso-legal` y `/politica-de-afiliados` tengan contenido editorial-real y legalmente sólido,
+**so that** AdSense aprueba la cuenta, los lectores entienden las políticas y el blog opera dentro del marco legal.
+
+**Acceptance Criteria:**
+
+1. `/etica-editorial` redactada con:
+   - Política de uso de IA (asistencia sí, generación autónoma no, firma humana siempre, FR23).
+   - Política de afiliados (qué se marca, cómo, transparencia comercial).
+   - Política de correcciones (cómo se publican erratas y updates, plazo).
+   - Código de autoría (compromiso editorial, fuentes, citación).
+2. `/politica-de-privacidad` redactada con:
+   - Datos recopilados (email para newsletter, IP para AdSense/Plausible, cookies de consent).
+   - Bases legales por finalidad (consentimiento, interés legítimo).
+   - Derechos del usuario (acceso, rectificación, borrado — DSAR/NFR14).
+   - Retención de datos.
+   - Transferencias internacionales (Vercel, Neon, Resend, Cloudinary, AdSense).
+   - Contacto del responsable.
+3. `/aviso-legal` redactada con: titular del sitio, domicilio (si corresponde — puede ser dirección postal del dueño o PO Box), información de contacto, jurisdicción aplicable.
+4. `/politica-de-afiliados` redactada con: qué programas de afiliados se usan (Amazon Associates ES/MX/AR/etc.), cómo se identifican (`rel="sponsored nofollow"` + disclaimer en cada artículo), declaración de honestidad editorial.
+5. Versión de cada política fechada (`Última actualización: YYYY-MM-DD`) — visible al lector.
+6. Plantillas legales revisadas vía LLM + abogado puntual (no llega bloqueante de la story, pero documentado).
+7. Cada cambio en estas páginas queda en el versionado de StaticPages (Story 3.9).
+
+#### Story 6.2 — Audit log expuesto en admin (FR27)
+
+**As a** dueño-administrador,
+**I want** ver un registro auditable de acciones críticas (logins, publicaciones, edits sensibles, cambios de configuración),
+**so that** detecto actividad sospechosa y entiendo qué pasó en el sistema.
+
+**Acceptance Criteria:**
+
+1. Collection `AuditLogs` ya alimentada desde épicas anteriores (logins, publicaciones, AdSlots changes, subscribers manual mods).
+2. Vista de admin `/admin/collections/audit-logs` con: timestamp, actor (User), acción (`login`/`logout`/`post_publish`/`post_unpublish`/`subscriber_delete`/`adslot_toggle`/etc.), entidad afectada (collection + id), payload resumido.
+3. Filtros por: actor, fecha, tipo de acción.
+4. Retención mínima: 90 días en MVP, configurable.
+5. Logs incluyen IP solo para acciones de seguridad (login success/failed); para acciones editoriales NO se persiste IP.
+6. Read-only desde admin — no editable.
+
+#### Story 6.3 — Hardening de seguridad (CSP estricta + headers + rate-limiting comprehensive)
+
+**As a** dueño,
+**I want** que el sitio cumpla con las mejores prácticas de seguridad web,
+**so that** reduzco al máximo la superficie de ataque y protejo a los lectores.
+
+**Acceptance Criteria:**
+
+1. CSP estricta configurada en `next.config.js` / middleware (NFR10):
+   - `default-src 'self'`
+   - `script-src 'self' 'nonce-{generated}' adsbygoogle.googleapis.com googletagmanager.com plausible.io`
+   - `style-src 'self' 'unsafe-inline'` (Tailwind genera inline en hot reload — refinar en build)
+   - `img-src 'self' data: res.cloudinary.com vercel.app twimg.com fbcdn.net`
+   - `frame-src youtube.com twitter.com x.com`
+   - `connect-src 'self' sentry.io plausible.io`
+   - `frame-ancestors 'none'`
+2. Headers de seguridad: `Strict-Transport-Security` (HSTS, max-age 1 año, includeSubDomains), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` mínima.
+3. Rate-limiting verificado en endpoints sensibles (NFR9): `/admin` login, `/api/newsletter/subscribe`, `/api/newsletter/resend-confirmation`, `/api/search`, `/go/*` (afiliados), `/api/stripe/webhook` (cuando se active).
+4. Dependabot (o equivalent) activo en GitHub con auto-update de patches críticos (NFR11).
+5. Auditoría manual final con `pnpm audit` + `npx vercel security` (si existe) — sin vulnerabilidades High/Critical en producción.
+
+#### Story 6.4 — Dashboard de admin con métricas operativas
+
+**As a** dueño,
+**I want** un dashboard en admin que me muestre el estado del sistema y de mi operación editorial,
+**so that** veo rápidamente qué necesita mi atención al loguearme.
+
+**Acceptance Criteria:**
+
+1. Página `/admin` (post-login) muestra dashboard con:
+   - **Editorial:** posts publicados últimos 30 días, drafts pendientes, próximos programados (lista corta).
+   - **Newsletter:** suscriptores activos, alta últimos 7 días, próxima edición programada.
+   - **Monetización:** top 5 afiliados por clicks últimos 30 días, total clicks afiliados, status de slots AdSense (cuántos activos).
+   - **Sistema:** último error capturado por Sentry (link al dashboard), estado del último deploy.
+2. Atajos rápidos: "Nuevo artículo", "Nueva newsletter", "Ver media library", "Configurar slots".
+3. Modo claro/oscuro respetado.
+4. Render con datos cacheados (revalidate cada 5 min) — no debe ralentizar el login.
+
+#### Story 6.5 — Seed de contenido editorial realista para soft-launch
+
+**As a** dueño,
+**I want** llegar al soft-launch con 10-15 artículos publicados de calidad editorial real, no placeholders,
+**so that** AdSense aprueba la cuenta, los lectores que llegan ven un blog "vivo" y el SEO empieza a indexar contenido relevante.
+
+**Acceptance Criteria:**
+
+1. Plan editorial pre-launch: definir 10-15 artículos de mix tipos (3-4 análisis, 3-4 noticias evergreen, 2-3 tutoriales, 2-3 reseñas/guías), cubriendo al menos 4 categorías (iPhone, Mac, Servicios, otro).
+2. Cada artículo: ≥800 palabras, featured image, autor (el dueño), categoría, tipo, tags relevantes, meta-SEO completo.
+3. Al menos 2 artículos con enlaces afiliados Amazon (testing del disclaimer auto).
+4. Al menos 1 artículo con embed YouTube + 1 con embed X (testing de bloques).
+5. Pages legales y `/etica-editorial` con contenido real (Story 6.1) — prerequisito.
+6. Seed se hace **manualmente desde admin** (es contenido real, no script automatizado) — esta story es de planning + producción, no de código nuevo.
+7. Validación: Lighthouse en home y al menos 3 artículos cumple ≥90 mobile (NFR3).
+
+#### Story 6.6 — Tuning final de performance + a11y + observability
+
+**As a** dueño-dev,
+**I want** validar que todos los KPI técnicos del PRD (CWV, Lighthouse, WCAG AA, observability) se cumplen en producción con tráfico real,
+**so that** lanzo con confianza y detecto degradaciones desde el día 1.
+
+**Acceptance Criteria:**
+
+1. Lighthouse mobile ≥90 (Performance, SEO, Accessibility) en home + página de artículo + página de categoría (NFR3).
+2. Core Web Vitals (RUM Vercel Speed Insights + CrUX) en p75 móvil cumplen: LCP <2.0s, INP <200ms, CLS <0.05 (NFR1).
+3. Audit a11y con axe-core (manual o vía CI) sin issues de severidad alta — WCAG 2.1 AA (NFR18).
+4. Sentry recibe errores reales (test de bombardeo) sin perder eventos.
+5. Plausible / Vercel Analytics registra pageviews y CWV en tiempo real.
+6. Logs estructurados de eventos clave (publicación, subscriber, afiliado click, scheduled job ejecuciones) revisables desde Vercel Logs.
+7. Documento `docs/operations/runbook.md` con: cómo investigar un error de Sentry, cómo verificar que el cron está corriendo, cómo restaurar un draft, qué hacer si una edición de newsletter falla a mitad de envío, contacto/escalación.
+
+#### Story 6.7 — Tests E2E para flujos críticos (NFR20)
+
+**As a** dueño-dev,
+**I want** suite de tests E2E con Playwright que cubre los flujos críticos del MVP,
+**so that** cada PR los corre y no se rompen silenciosamente con cambios futuros.
+
+**Acceptance Criteria:**
+
+1. Test E2E: flujo de publicación (crear draft → schedule → publish → ver en producción).
+2. Test E2E: signup newsletter completo (form → email mock → confirmación → status `confirmed`).
+3. Test E2E: click en afiliado (insertar link → click `/go/[slug]` → redirect correcto → counter incrementado).
+4. Test E2E: gating premium con flag off (artículo con `isPremium=true` → render normal porque PREMIUM_ENABLED=false).
+5. Test E2E: render de artículo con embed YouTube + code block + callout — sin errores.
+6. Tests corren en CI (preview deploy + main).
+7. Documentación de cómo correr/agregar tests E2E en el README.
+
+---
+
+#### Notas operativas de Epic 6
+
+- **Epic 6 es el más heterogéneo** — mezcla contenido editorial (Story 6.1, 6.5), seguridad (6.3), UX de admin (6.4), tests (6.7) y polish operativo (6.6, 6.2). Es el "tying up loose ends" antes del soft-launch.
+- **Dependencias entre stories:** 6.1 (políticas) es prerequisito de 6.5 (seed) — sin políticas reales no hay aprobación AdSense ni publicación seria. 6.2-6.4-6.7 son independientes entre sí. 6.6 (tuning) cierra al final.
+- **Stories paralelizables:** 6.1 ∥ 6.3 ∥ 6.4 ∥ 6.7. 6.5 depende de 6.1. 6.6 al final.
+- **Story 6.5 NO es código** — es producción editorial. El SM puede contabilizarla como capacidad del dueño-editor, no del dueño-dev. Importante diferenciar el sizing.
+- **Story candidata a sub-split:** 6.6 (tuning final) puede partirse en "perf + a11y" + "observability + runbook" si el alcance crece.
+- **Lo que NO entra en Epic 6:**
+  - Activación pública de premium (Fase 2).
+  - Sistema de comentarios (Fase 2).
+  - Newsletter VIP / sponsored marketplace (Fase 2).
+  - Tests visuales / Chromatic (Fase 2+).
+  - Load testing real (Fase 2+).
+- **Definición de "MVP DONE":** cierre de Epic 6 + cumplir el MVP Success Criteria del brief (publicación consistente ≥3/sem por 8 semanas, Lighthouse ≥90, primeras 5K sesiones orgánicas, AdSense aprobada, newsletter ≥500 con OR >35%, admin 100% sin tocar código).
+
+---
+
 
 
 
