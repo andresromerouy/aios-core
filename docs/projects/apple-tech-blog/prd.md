@@ -38,6 +38,7 @@ Los lectores hispanohablantes interesados en Apple hoy navegan entre medios gene
 | 2026-05-24 | 0.2     | Sección 2 Requirements (FR + NFR)                     | Morgan |
 | 2026-05-24 | 0.3     | Ajustes del dueño: ingresos 5K/12m + IA solo interna + sin dominio MVP | Morgan |
 | 2026-05-24 | 0.4     | Sección 3 UI Design Goals (visión, screens, branding, plataformas) | Morgan |
+| 2026-05-24 | 0.5     | Sección 4 Technical Assumptions (stack, repo, arquitectura, testing) | Morgan |
 
 ---
 
@@ -238,3 +239,103 @@ La promesa visceral al lector: *"acá puedo enterarme sin ser bombardeado, y pue
 - **Apps nativas:** explícitamente fuera de alcance (PWA bien hecha cubre el caso de uso).
 
 ---
+
+## 4. Technical Assumptions
+
+> _Esta sección define las constraints técnicas que recibirá el Architect. Las decisiones aquí son **constraints**, no sugerencias — cualquier cambio debe re-litigarse con el dueño antes de avanzar a arquitectura._
+
+### 4.1 Repository Structure: **Polyrepo (repo nuevo dedicado)**
+
+- **Decisión:** El proyecto vive en un **repositorio nuevo dedicado** (ej: `el-mate-digital`), **independiente de `aios-core`**.
+- **Rationale:** Es una aplicación standalone Next.js + Payload con dominio de problema, ciclo de release y dependencias propias. Empaquetar dentro de `aios-core` (que es un framework de agentes) generaría acoplamiento accidental y deploys cruzados.
+- **NO se usa monorepo** porque hay un único deployable (single Next.js app con Payload embebido). No hay packages compartidos que justifiquen Turborepo/Nx en MVP.
+
+### 4.2 Service Architecture: **Monolito modular sobre Next.js + Payload, deployado en serverless de Vercel**
+
+- **Decisión:** Aplicación monolítica única basada en **Next.js 15 (App Router)** con **Payload CMS 3.0 embebido en el mismo proyecto** (comparten DB, server actions y deploy).
+- **Estructura de carpetas tentativa** (el Architect cierra el detalle final):
+  - `app/(public)/` — rutas públicas (home, artículo, categoría, etc.)
+  - `app/(payload)/` — admin de Payload
+  - `app/api/` — API routes para webhooks (Stripe, Resend) y endpoints utilitarios
+  - `collections/` — definición de collections de Payload (Posts, Categories, Tags, Authors, Plans, Members, Subscriptions, Newsletter, AdSlots, MediaAssets, AuditLogs)
+  - `lib/` — utilidades compartidas (Stripe stub, Resend client, helpers de gating, SEO helpers)
+  - `components/` — componentes React (UI compartida + público + admin custom)
+  - `styles/` — Tailwind config + tokens de diseño
+- **Servicios externos vía SDK** (no microservicios propios): Resend, Stripe (stub), Cloudinary, AdSense (client-side script), Plausible, Akismet (Fase 2).
+- **Edge functions** para tareas ligeras (redirects, sirviendo ads, A/B simple si se necesita).
+- **Rationale:** Stack moderno, costos bajos de operación, deploys atómicos, simplicidad para fundador único. Microservicios sería overengineering para 1-100k pv/mes.
+
+### 4.3 Testing Requirements: **Unit + E2E selectivos (no full pyramid en MVP)**
+
+- **Decisión:** **Unit tests** + **tests E2E selectivos en flujos críticos** (formalizado en NFR20).
+- **Stack de testing:**
+  - **Unit:** Vitest o Jest (preferencia Vitest por compatibilidad nativa con Next.js + ESM y velocidad).
+  - **E2E:** Playwright (al menos un test por flujo crítico: publicar artículo, suscripción newsletter con doble opt-in, click afiliado con redirect, gating premium con flag off, render de artículo con TOC).
+  - **Tests de integración** focalizados solo en colecciones de Payload con lógica de negocio compleja (gating, subscription state).
+  - **Coverage tooling:** istanbul/c8 con threshold mínimo (TBD por Architect, sugerencia: 60-70% en `lib/` y `collections/`, no perseguir 100%).
+- **Manual testing convenience:** sembrar DB de desarrollo con dataset realista (10-20 artículos de ejemplo, categorías, autor demo) vía script `pnpm seed`.
+- **Lo que NO se hace en MVP:** Full testing pyramid con tests visuales (Chromatic), property-based testing, mutation testing, load/stress testing. Se evalúa cuando justifique audiencia.
+
+### 4.4 Additional Technical Assumptions and Requests
+
+#### Lenguajes y frameworks core
+
+- **Lenguaje:** **TypeScript estricto** (`strict: true`, sin `any` implícito), Node.js ≥20 LTS.
+- **Framework:** **Next.js 15** con App Router (server components por default, client components solo donde sea necesario).
+- **Runtime:** mix de Node serverless (Vercel functions) + edge (donde aplique).
+
+#### UI y diseño
+
+- **Estilos:** **Tailwind CSS** + **shadcn/ui** como base de componentes accesibles.
+- **Iconos:** **Lucide**.
+- **Tipografía:** auto-hospedada en `app/fonts/` o servida vía `next/font` para evitar layout shift.
+
+#### CMS y datos
+
+- **CMS:** **Payload CMS 3.0** embebido. Editor rico Lexical.
+- **DB:** **PostgreSQL en Neon** (plan free para desarrollo, paid si tráfico/storage lo exige). Branching gratuito para PRs.
+- **ORM:** el que Payload provee (Drizzle bajo el capó en Payload 3.0).
+- **Búsqueda MVP:** **PostgreSQL FTS** (tsvector + tsquery, con índices GIN). Evaluar **Meilisearch** en Fase 2 si > 1.000 artículos o queries complejas.
+
+#### Hosting, media e infra
+
+- **Hosting:** **Vercel** (Free/Pro según pricing al lanzar; MVP encaja en Hobby/Pro temprano).
+- **Media:** **Cloudinary** como primera opción por optimización on-the-fly, transformaciones y AVIF/WebP automático. Alternativa de fallback: **Vercel Blob** si se prefiere todo bajo un solo proveedor.
+- **Email transaccional + newsletter:** **Resend**.
+- **DNS y dominio:** **postergado** (MVP corre en URLs `*.vercel.app` para preview y production). Cuando se decida dominio, se conectará vía Vercel DNS.
+
+#### Pagos (preparados, no activos en MVP)
+
+- **SDK Stripe** instalado y configurado en MVP.
+- **Webhooks Stripe** declarados pero deshabilitados vía `PREMIUM_ENABLED=false`.
+- **Collections** `Plan`, `Subscription`, `Member` creadas en Payload desde MVP.
+- **Customer Portal** de Stripe se conecta recién en Fase 2.
+
+#### Analytics y observabilidad
+
+- **Analytics público:** **Plausible** (GDPR-friendly, sin cookies) o GA4 (a decisión final del dueño — preferencia inicial: **Plausible**).
+- **Analytics de plataforma:** **Vercel Analytics** + **Vercel Speed Insights** para RUM y Core Web Vitals.
+- **Logs:** Vercel Logs en MVP. Evaluar Logtail/Axiom si crece.
+- **Error tracking:** **Sentry** (plan free para MVP) — recomendado por Architect aunque no esté en el brief.
+
+#### Seguridad operacional
+
+- **Secrets:** **Vercel Environment Variables** + `.env.local` para dev (nunca commiteado).
+- **2FA admin:** TOTP via Payload native auth + `otplib` o plugin existente.
+- **CSP, HSTS, headers:** definidos en `next.config.js` + middleware.
+- **Rate limiting:** **Upstash Redis** (free tier) o middleware nativo de Next.js para endpoints sensibles.
+
+#### CI/CD
+
+- **CI:** **GitHub Actions** (build + lint + typecheck + unit tests en cada PR; preview deploy automático en Vercel; e2e en main).
+- **CD:** Vercel auto-deploy en `main` (production) + previews por branch/PR.
+- **Branching:** trunk-based con feature branches cortas y PRs revisados (auto-revisión + CodeRabbit si el dueño quiere).
+- **Versioning:** semver semántico en releases (`v0.x` durante MVP, `v1.0` en soft-launch).
+
+#### Política de uso de IA en desarrollo
+
+- **Editorial:** ver FR23/FR24 (asistida + auditable interna).
+- **Desarrollo (interna):** uso libre de asistentes de código (Cursor, Copilot, Claude Code) — sin obligación de marcar PRs. Toda la responsabilidad de la calidad recae en el dueño/dev al hacer merge.
+
+---
+
