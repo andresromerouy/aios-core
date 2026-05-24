@@ -1,24 +1,28 @@
-# Project Brief: Apple Tech Blog (nombre de trabajo)
+# Project Brief: El Mate Digital
 
-> **Documento:** Project Brief v1.0
+> **Documento:** Project Brief v1.1
 > **Autor:** Atlas (Analyst Agent) — AIOS
 > **Fecha:** 2026-05-24
-> **Estado:** Borrador inicial (YOLO) — pendiente de validación con el dueño
-> **Idioma del producto:** Español (es-ES / es-LATAM)
+> **Estado:** Validado por el dueño — listo para handoff a PM
+> **Idioma del producto:** Español (es-LATAM como variante principal, con neutralidad léxica para España)
+> **Nombre de trabajo:** El Mate Digital — identidad LATAM (ritual del mate) + foco Apple/tech
+> **Dominio:** Por definir (candidatos: `elmatedigital.com` / `.tech` / `.lat`)
 
 ---
 
 ## Executive Summary
 
-Un blog independiente en español dedicado a cubrir el ecosistema Apple y la actualidad tecnológica adyacente: noticias, rumores, análisis profundos, tutoriales y reseñas de producto. Inspirado en referentes como **La Manzana Mordida**, busca ofrecer cobertura ágil + análisis de calidad con una experiencia de lectura limpia, móvil-first y rápida.
+**El Mate Digital** es un blog independiente en español-LATAM dedicado a cubrir el ecosistema Apple y la actualidad tecnológica adyacente: noticias, rumores, análisis profundos, tutoriales y reseñas de producto. La metáfora del mate — ritual diario, compartido, cálido, sin apuros — guía el contraste con la cobertura tech tradicional: en lugar de titulares fríos al estilo *wire*, El Mate Digital ofrece lectura pausada, contexto regional y voz propia.
+
+Inspirado en referentes como **La Manzana Mordida**, busca ofrecer cobertura ágil + análisis de calidad con una experiencia de lectura limpia, móvil-first y rápida.
 
 El problema central a resolver es la **fragmentación y baja calidad editorial** que sufre el lector hispanohablante interesado en Apple: o consume medios generalistas con cobertura superficial, o recurre a fuentes en inglés. El blog se posiciona como **fuente confiable, ágil y monetizada de forma sana**, con tres pilares funcionales:
 
 1. **Sitio público** optimizado para SEO y velocidad.
-2. **Panel super-admin propio** para que el dueño controle 100% el contenido, publicación, media, comentarios y configuración.
+2. **Panel super-admin propio** para que el dueño controle 100% el contenido, publicación, media y configuración.
 3. **Monetización en capas** (AdSense → afiliados Amazon → newsletter sponsored → membresía premium con Stripe) que escala con el tráfico.
 
-La propuesta de valor: *“El blog Apple en español que respeta tu tiempo: información veraz, análisis honesto y experiencia sin fricción.”*
+La propuesta de valor: *"Apple en tu idioma, con tu ritmo. Mate de por medio."*
 
 ---
 
@@ -147,14 +151,16 @@ A 24 meses: la referencia indispensable en español para entender qué pasa con 
 - **Newsletter (doble opt-in):** integración Resend, formulario en sidebar y footer, página de archivo de newsletter, gestión de listas desde admin.
 - **AdSense:** integración con slots dinámicos configurables (header, in-feed home, in-article cada N párrafos, sidebar, footer). Toggle on/off por artículo.
 - **Afiliados Amazon básico:** sistema de shortlinks con tracking de clicks, disclaimer automático en artículos con afiliados.
-- **Comentarios:** sistema nativo en Payload con moderación + filtro anti-spam básico (Akismet-like o honeypot).
 - **Analytics:** Vercel Analytics + Plausible (sin cookies) o GA4 según preferencia.
 - **Modo claro/oscuro** persistido en cliente.
 - **i18n-ready** (aunque MVP solo español) — estructura preparada para futura expansión.
+- **Infraestructura premium pre-instalada (no activada):** modelos de datos (`Subscription`, `Plan`, `Member`), gating helper `requiresMembership(post)`, integración Stripe stubbed con feature flag `PREMIUM_ENABLED=false`. Permite activar la membresía sin migraciones ni refactors cuando el tráfico/timing lo justifiquen.
+- **Política editorial de uso de IA (visible públicamente):** página `/etica-editorial` declarando que la IA se usa como herramienta asistente (brainstorming, primer borrador, edición, traducción) pero **nunca como autor final**: cada artículo es revisado, corregido y firmado por un humano. Compromiso explícito: cero contenido publicado sin pasada editorial humana.
 
 ### Out of Scope for MVP
 
-- Membresía premium con Stripe (Fase 2, mes 6-9).
+- **Activación de membresía premium** (la infra queda lista pero el checkout, gating activo y plan público se difieren a Fase 2, mes 6-9).
+- **Comentarios públicos** — se difieren a Fase 2 para evitar carga de moderación sobre el fundador único y reducir superficie de spam/abuso durante la fase de bootstrapping editorial. Mientras tanto, se habilita engagement vía respuestas por email a la newsletter y menciones en redes.
 - App móvil nativa (no es prioridad — PWA bien hecha es suficiente).
 - Foros / comunidad estilo Discourse.
 - Podcast (puede vincularse pero no producirse desde la plataforma).
@@ -183,12 +189,12 @@ El MVP se considera exitoso cuando:
 
 ### Phase 2 Features (Mes 6-12)
 
-- **Membresía premium con Stripe:** plan mensual + anual, gating de contenido premium (análisis exclusivos, newsletter VIP, sin ads).
+- **Activación de membresía premium con Stripe:** flip del flag `PREMIUM_ENABLED`, plan mensual + anual, gating de contenido premium (análisis exclusivos, newsletter VIP, sin ads). La infra ya está en MVP, en Fase 2 se activa UI pública + checkout + comunicación.
+- **Sistema de comentarios v1:** sistema nativo en Payload con moderación + filtro anti-spam (Akismet/honeypot), políticas claras de conducta, posible requerimiento de cuenta para reducir abuso. Activación condicionada a tráfico ≥10k sesiones/mes (señal de audiencia que justifica el costo de moderación).
 - **Newsletter sponsored builder:** template para enviar dossier semanal con slots de patrocinio gestionables.
 - **Mejoras de SEO:** topic clusters automáticos, internal linking sugerido por IA, schema FAQ/HowTo, AMP opcional.
-- **Sistema de “colecciones”/series** (ej: “Todo sobre iOS 19”).
+- **Sistema de "colecciones"/series** (ej: "Todo sobre iOS 19").
 - **Lectura guardada / favoritos** para usuarios registrados (lectores).
-- **Comments v2:** votación, hilos, badges de miembros premium.
 - **Migración o adición a Mediavine/Ezoic** si tráfico ≥50k sesiones/mes.
 
 ### Long-term Vision (12-24 meses)
@@ -243,8 +249,8 @@ El MVP se considera exitoso cuando:
   - AdSense (script + slots)
   - Amazon Associates (link shortener + tracking)
   - Plausible/Vercel Analytics
-  - Stripe (Fase 2)
-  - Akismet o equivalente (anti-spam comentarios)
+  - Stripe (SDK + webhooks instalados desde MVP, activación Fase 2)
+  - Akismet o equivalente (anti-spam comentarios — Fase 2 cuando se habiliten comentarios)
 - **Security/Compliance:**
   - HTTPS forzado (Vercel default).
   - **GDPR + LOPDGDD (España) + LFPDPPP (México) / Habeas Data (Argentina)**: política de privacidad clara, cookie banner si se usan cookies de tracking, derecho al olvido en comentarios y newsletter.
@@ -294,16 +300,22 @@ El MVP se considera exitoso cuando:
 - **Legal/GDPR:** cookies AdSense + tracking afiliados sin consentimiento bien gestionado → **impacto:** multa. **Mitigación:** CMP (Cookie Management Platform) certificada desde día 1.
 - **Lock-in de Payload:** si Payload pivota o cambia licencia → **impacto:** migración costosa. **Mitigación:** mantener data en PostgreSQL estándar (Payload no es propietario del schema, podés exportar siempre).
 
+### Resolved (decisiones del dueño, v1.1)
+
+- ✅ **Nombre de trabajo:** **El Mate Digital** (LATAM + Apple). Dominio por confirmar.
+- ✅ **Idioma:** español-LATAM como variante principal, con léxico neutral evitando coloquialismos que aíslen a España.
+- ✅ **Política de uso de IA:** asistencia sí (brainstorming, primer borrador, edición, traducción); generación autónoma no. Cada artículo lo firma y revisa un humano. Esta política se publica en `/etica-editorial`.
+- ✅ **Comentarios:** diferidos a Fase 2 (mes 6-9) cuando haya audiencia y costos de moderación se justifiquen. En MVP no se exponen.
+- ✅ **Membresía premium:** infra preparada en MVP (collections + Stripe SDK + feature flag), activación pública diferida a Fase 2.
+- ✅ **Cadencia editorial MVP:** ≥4 artículos/semana sostenidos durante 6 meses.
+
 ### Open Questions
 
-- ¿Nombre/marca del blog? Hay que hacer un branding sprint corto.
-- ¿Dominio elegido? ¿`.com`, `.es`, `.io`, regional?
-- ¿Idioma único español neutro o variantes (es-ES vs es-LATAM)?
-- ¿Política de uso de IA en redacción? (Asistencia sí, generación pura no — debe quedar claro editorialmente.)
-- ¿Comentarios desde día 1 o se retrasan a fase 2? (Riesgo de spam vs señal de comunidad.)
-- ¿Se acepta sponsored content desde el inicio o se espera a tener audiencia?
+- ¿Dominio final? Validar disponibilidad: `elmatedigital.com` vs `.tech` vs `.lat` vs combinaciones (`mate.tech`, `tomateundigital.com`).
+- ¿Diseño visual? Branding sprint corto: paleta (apple-blanco + verde-mate + acento cálido), tipografía editorial (¿New York / Söhne / IBM Plex Serif?), logo (mate estilizado + manzana sutil).
+- ¿Se acepta sponsored content desde el inicio o se espera a tener audiencia? Recomendación: esperar a 10k sesiones/mes.
 - ¿Cómo se elige el slug de URLs? (¿Con fecha o sin fecha? Recomendado: sin fecha, evergreen.)
-- ¿Frecuencia y formato de newsletter? (Semanal viernes parece sweet spot.)
+- ¿Frecuencia y formato de newsletter? (Semanal viernes parece sweet spot — confirmar nombre: ¿"El Mate del Viernes"?)
 - ¿Lanzar PWA desde MVP o esperar?
 
 ### Areas Needing Further Research
@@ -328,7 +340,13 @@ Pendiente. Recomendado ejecutar antes de PRD:
 
 ### B. Stakeholder Input
 
-- **Owner (dueño del proyecto):** Confirmó stack (Next.js + Payload), preferencia por repo separado, 3 pilares (público + admin + monetización), referente principal La Manzana Mordida. Pendiente capturar visión editorial, voz, tono y restricciones temporales personales.
+- **Owner (dueño del proyecto):** Confirmó stack (Next.js + Payload), preferencia por repo separado, 3 pilares (público + admin + monetización), referente principal La Manzana Mordida.
+- **Decisiones validadas en sesión 2026-05-24 (v1.1):**
+  - Nombre de trabajo **El Mate Digital** (identidad LATAM + Apple).
+  - Política IA: asistida + transparente, declarada públicamente.
+  - Premium: infra en MVP, activación pública en Fase 2.
+  - Comentarios: diferidos a Fase 2.
+- Pendiente capturar: visión editorial detallada (voz/tono), restricciones temporales semanales del dueño para sostener cadencia 4/sem, identidad visual.
 
 ### C. References
 
@@ -348,24 +366,33 @@ Pendiente. Recomendado ejecutar antes de PRD:
 
 ### Immediate Actions
 
-1. **Validar este Project Brief** con el dueño (sección por sección — confirmar / ajustar / desafiar).
-2. **Decidir nombre y dominio del blog** (branding sprint corto, 1-2 sesiones).
-3. **Disparar competitor analysis** (`*create-competitor-analysis` con La Manzana Mordida + 3 referentes).
-4. **Disparar market research** (`*perform-market-research` sobre mercado hispano de medios tech/Apple).
-5. **Handoff a PM (@pm / Morgan)** para generar el PRD a partir de este brief.
-6. **Handoff a Architect (@architect)** post-PRD para diseñar arquitectura técnica de detalle.
-7. **Definir política editorial** (voz, uso de IA, ética de afiliados, código de conducta de comentarios).
-8. **Crear repo nuevo** y registrar dominio cuando se confirme el nombre.
+1. ~~**Validar este Project Brief** con el dueño~~ ✅ Hecho (v1.1).
+2. **Validar disponibilidad de dominio** para `elmatedigital.com` y variantes.
+3. **Branding sprint corto** (paleta, tipografía, logo concept mate+manzana).
+4. **Disparar competitor analysis** (`*create-competitor-analysis` con La Manzana Mordida + 3 referentes).
+5. **Disparar market research** (`*perform-market-research` sobre mercado hispano de medios tech/Apple).
+6. **➡️ Handoff a PM (@pm / Morgan)** para generar el PRD a partir de este brief.
+7. **Handoff a Architect (@architect)** post-PRD para diseñar arquitectura técnica de detalle.
+8. **Crear repo nuevo** y registrar dominio cuando se confirme.
 
 ### PM Handoff
 
-Este Project Brief proporciona el contexto completo para **Apple Tech Blog (nombre de trabajo)**. Por favor, inicie en **'PRD Generation Mode'**, revise el brief detalladamente y trabaje con el dueño para crear el PRD sección por sección según indique el template, solicitando aclaraciones o sugiriendo mejoras donde corresponda.
+Este Project Brief proporciona el contexto completo para **El Mate Digital**. Por favor, inicie en **'PRD Generation Mode'**, revise el brief detalladamente y trabaje con el dueño para crear el PRD sección por sección según indique el template, solicitando aclaraciones o sugiriendo mejoras donde corresponda.
+
+**Decisiones del dueño ya cerradas (no re-litigar salvo nueva información):**
+- Nombre: **El Mate Digital**.
+- Política IA: asistida + transparente.
+- Premium: infra en MVP, activación Fase 2.
+- Comentarios: Fase 2.
+- Cadencia: ≥4 artículos/semana.
 
 Focos críticos para el PRD:
 
 - Detallar **funcional + UX** del panel super-admin (es el diferencial clave para el dueño).
 - Definir **flujos de monetización end-to-end** (configuración → entrega → tracking → reporte).
-- Especificar **modelo de datos editorial** (artículo, categoría, tag, autor, comentario, suscriptor, newsletter, afiliado, ad-slot).
+- Especificar **modelo de datos editorial** (artículo, categoría, tag, autor, suscriptor, newsletter, afiliado, ad-slot, plus stubs para `Member`/`Subscription`/`Plan` de premium).
+- Definir el **shape exacto del feature flag `PREMIUM_ENABLED`** y qué piezas se exponen en MVP (data models, helpers, SDK) vs. lo que sólo se enciende en Fase 2 (UI pública de planes, checkout, gating activo, gestión post-pago).
+- Detallar **política editorial / página `/etica-editorial`**: declaración de uso de IA, política de afiliados, política de correcciones, autoría.
 - Definir **épicas** y secuencia de entrega del MVP en sprints de 1-2 semanas.
 
 ---
