@@ -43,6 +43,7 @@ Los lectores hispanohablantes interesados en Apple hoy navegan entre medios gene
 | 2026-05-24 | 0.7     | Sección 6 — Epic 1 Foundation & Canary (stories + AC) | Morgan |
 | 2026-05-24 | 0.8     | Sección 6 — Epic 2 Editorial Core (Posts + Render)    | Morgan |
 | 2026-05-24 | 0.9     | Sección 6 — Epic 3 Public Site UX & SEO               | Morgan |
+| 2026-05-24 | 0.10    | Sección 6 — Epic 4 Newsletter (Resend + doble opt-in) | Morgan |
 
 ---
 
@@ -881,6 +882,140 @@ Estos paths se confirman al inicio del Epic 3; cambiarlos después implica traba
 - **Riesgos abiertos de Epic 3:** AdSense puede demorar semanas en aprobar la cuenta — recomendación operativa: **iniciar el trámite de AdSense apenas Epic 3 esté en producción** con al menos 10-15 artículos publicados, para no bloquear Epic 5.
 
 ---
+
+### Epic 4 — Newsletter
+
+**Expanded Goal:** Convertir cada visita en una potencial audiencia retornante mediante una newsletter editorial. Modelar suscriptores, implementar flujo legal de doble opt-in con Resend, exponer formularios contextuales (sidebar, footer, fin de artículo), permitir al dueño componer y enviar ediciones desde admin, mantener un archivo público de ediciones pasadas y honrar el flujo de bajas (unsubscribe). Al cerrar esta épica el dueño puede enviar la primera edición real, los suscriptores reciben emails con branding consistente, y el sistema cumple con GDPR/LOPDGDD desde el día uno.
+
+#### Story 4.1 — Collection Subscribers + formulario funcional de signup en placements
+
+**As a** lector,
+**I want** suscribirme a la newsletter desde el footer, sidebar o el final de un artículo introduciendo solo mi email,
+**so that** puedo recibir el contenido sin tener que crearme una cuenta.
+
+**Acceptance Criteria:**
+
+1. Collection `Subscribers` con campos: `email` (text, único, formato validado), `status` (select: `pending`/`confirmed`/`unsubscribed`/`bounced`), `confirmationToken` (text, único, generado al alta), `confirmationTokenExpiresAt` (date, +48h), `confirmedAt` (date), `unsubscribedAt` (date), `source` (text — `footer`/`sidebar`/`article-end`/`other`), `consentVersion` (text — versión de la política aceptada), `createdAt`, `updatedAt`.
+2. Componente `NewsletterSignupForm` reutilizable con 3 variantes visuales: footer (compacta), sidebar (con titular + bullets de valor), article-end (CTA destacado).
+3. Validación cliente: email RFC válido, mensaje claro de error.
+4. Endpoint API `POST /api/newsletter/subscribe` que: valida email, crea subscriber con `status='pending'`, genera token, dispara email de confirmación (Story 4.2), devuelve respuesta de éxito (sin filtrar si el email ya existe — anti-enumeration).
+5. Mensaje al usuario tras submit: "Te enviamos un email para confirmar tu suscripción. Revisá tu bandeja (y la carpeta de spam)".
+6. Rate-limiting en el endpoint (10 req/min por IP) — anti-abuso.
+7. Si el email ya existe en estado `unsubscribed`, permitir re-suscripción regenerando token y reconfirmando (evita lock-in irreversible accidental).
+8. Honeypot field + Cloudflare Turnstile (free tier) o equivalente anti-bot — preferencia: honeypot + rate-limit en MVP, Turnstile/captcha si se observa abuso.
+
+#### Story 4.2 — Resend setup + flujo de doble opt-in (confirmación)
+
+**As a** dueño,
+**I want** que cada suscriptor confirme su email antes de quedar activo, vía Resend,
+**so that** cumplo con GDPR/LOPDGDD y mi lista solo contiene direcciones legítimas y consensuadas.
+
+**Acceptance Criteria:**
+
+1. Cuenta Resend conectada con dominio o usando `onresend.com` provisional hasta tener dominio.
+2. Plantilla de email "Confirma tu suscripción" con branding mínimo (logo placeholder, paleta cálida, link al botón de confirmación, política de privacidad, opt-out explícito en caso de no haber sido vos).
+3. Email enviado vía Resend SDK con `from`, `replyTo`, headers correctos para deliverability (SPF/DKIM cuando haya dominio; mientras tanto Resend gestiona).
+4. Endpoint `GET /api/newsletter/confirm?token=...` que: valida token (existe + no expirado), marca `status='confirmed'`, setea `confirmedAt=now()`, redirige a `/newsletter?confirmed=1`.
+5. Token usado se invalida tras confirmación (no replay).
+6. Si el token expiró (>48h), endpoint muestra mensaje claro con opción de reenviar.
+7. Endpoint `POST /api/newsletter/resend-confirmation` que regenera token y reenvía (con rate-limiting 3 req/h por email).
+8. Página `/newsletter?confirmed=1` muestra mensaje de bienvenida + link a archivo.
+9. Logs estructurados + Sentry para fallos de envío.
+
+#### Story 4.3 — Flujo de baja (unsubscribe)
+
+**As a** suscriptor,
+**I want** darme de baja de la newsletter desde un link en cualquier email recibido, con un solo click,
+**so that** ejerzo mi derecho a no recibir más comunicaciones y el dueño cumple con normativa.
+
+**Acceptance Criteria:**
+
+1. Cada email de newsletter incluye link `/api/newsletter/unsubscribe?token=...` con token único por suscriptor.
+2. Endpoint procesa la baja: `status='unsubscribed'`, `unsubscribedAt=now()`, redirige a `/newsletter/baja-confirmada` con mensaje.
+3. Página `/newsletter/baja-confirmada` ofrece feedback opcional ("¿Por qué te das de baja?") con 4-5 opciones radio (poco interesante / muy frecuente / nunca me suscribí / otro / prefiero no decir) — opcional, no obligatorio.
+4. Suscriptor `unsubscribed` no recibe más broadcasts ni transaccionales.
+5. Endpoint debe soportar `GET` (link directo) y debe ser idempotente (re-clickear el link no rompe nada).
+6. Cabecera `List-Unsubscribe` configurada en cada email (RFC 2369) para clientes que la consumen automáticamente (Gmail, Apple Mail).
+7. Header `List-Unsubscribe-Post: List-Unsubscribe=One-Click` (RFC 8058) implementada para baja con un solo click.
+
+#### Story 4.4 — Collection Newsletters + composer en admin
+
+**As a** dueño-editor,
+**I want** componer ediciones de newsletter desde admin con un editor parecido al de los artículos, programando y revisando antes de enviar,
+**so that** puedo producir y enviar ediciones sin salir del CMS.
+
+**Acceptance Criteria:**
+
+1. Collection `Newsletters` con campos: `title` (text, requerido), `slug` (text, único), `subject` (text — asunto del email, ≤120 chars), `previewText` (text — preheader, ≤150 chars), `body` (richText Lexical, reusando config de Story 2.5 con un set reducido de bloques email-safe), `status` (select: `draft`/`scheduled`/`sent`), `scheduledAt` (date), `sentAt` (date), `recipientCount` (number, populated post-send), `createdBy` (relación a Authors o Users).
+2. Editor con preview lateral (HTML email render) — útil para validar antes de enviar.
+3. Validación: para `scheduled` o `sent`, todos los campos requeridos completos.
+4. Acción "Enviar prueba a mí mismo" en admin (manda el email a la dirección del user logueado) — clave para validar antes del envío masivo.
+5. Plantilla HTML del email construida con tablas (compatibilidad email-clients) y estilos inline; soporta modo claro (modo oscuro se controla por client, se prepara contraste razonable).
+6. Bloques email-safe permitidos: heading, párrafo, lista, imagen (con dimensiones fijas), blockquote, link, separador, botón CTA. Bloques no-email-safe (embed YouTube, code highlighting complejo) deshabilitados o reemplazados por placeholders (ej: YouTube → imagen thumbnail con link).
+
+#### Story 4.5 — Envío de broadcast via Resend
+
+**As a** dueño-editor,
+**I want** enviar una edición lista a todos los suscriptores `confirmed` con un click desde admin,
+**so that** distribuyo mi contenido editorial sin manejar la infraestructura de envío masivo.
+
+**Acceptance Criteria:**
+
+1. Botón "Enviar ahora" en admin del newsletter (visible solo cuando status=`draft` o `scheduled`-en-pasado y campos completos).
+2. Endpoint server-side ejecuta el envío vía Resend Broadcasts (o batch de `emails.send` chunked si Broadcasts no encaja).
+3. Lista de destinatarios = todos los suscriptores con `status='confirmed'`.
+4. Cada email incluye: link de baja personalizado (Story 4.3), headers RFC, sender verificado.
+5. Tras envío: status → `sent`, `sentAt = now()`, `recipientCount` populated con el total enviado.
+6. Manejo de bounces: webhook de Resend actualiza `status='bounced'` en suscriptores que rebotan hard.
+7. Job/cron similar al de publicaciones programadas (Story 2.6) que procesa newsletters `scheduled` cuando llega su hora.
+8. Logs estructurados + Sentry alertan si algún chunk falla.
+9. **No re-envíos accidentales**: una vez `sent`, el botón "Enviar" queda deshabilitado / requiere "duplicar como nueva edición" explícito.
+
+#### Story 4.6 — Archivo público de newsletters
+
+**As a** lector,
+**I want** ver el archivo público de newsletters pasadas en `/newsletter`,
+**so that** puedo evaluar el contenido antes de suscribirme y leer ediciones específicas después.
+
+**Acceptance Criteria:**
+
+1. Ruta `/newsletter` lista las ediciones `sent` cronológicamente con card (title, subject como subtítulo, previewText, fecha de envío, link a ver completa).
+2. Ruta `/newsletter/[slug]` renderiza una edición individual con su body Lexical, layout limpio sin sidebar/related, CTA de suscripción al final.
+3. ISR con revalidate adecuado.
+4. SEO básico para cada edición (meta + OG + JSON-LD `Article` adaptado).
+5. Estado vacío: si no hay ediciones aún, mensaje "El archivo se irá llenando cuando enviemos la primera edición — suscribite para no perderte ninguna".
+6. Página `/newsletter` incluye el formulario de signup al tope (variante destacada).
+
+#### Story 4.7 — Gestión de lista en admin (filtros, export, manual edits)
+
+**As a** dueño,
+**I want** filtrar, exportar y gestionar suscriptores desde admin,
+**so that** entiendo el estado de mi lista, puedo limpiar bounces, y conservo backup periódico fuera del sistema.
+
+**Acceptance Criteria:**
+
+1. Vista de lista en admin con filtros por status, fecha de alta, source.
+2. Búsqueda por email parcial.
+3. Botón "Exportar a CSV" exporta los suscriptores filtrados con email, status, confirmedAt, source.
+4. Estadísticas básicas en el header de la lista: total confirmed, total pending, total unsubscribed, alta últimos 7/30 días.
+5. Acciones bulk: marcar como `bounced` manualmente (limpieza), eliminar (con confirmación + audit log).
+6. Capacidad de agregar manualmente un suscriptor con `status='confirmed'` (solo si el dueño tiene consentimiento documentado — el sistema deja audit log).
+7. Honra el derecho al olvido (NFR12 / NFR14): eliminar un suscriptor desde admin borra su registro completamente.
+
+---
+
+#### Notas operativas de Epic 4
+
+- **Dependencias entre stories:** 4.1 → 4.2 (signup requiere confirmación). 4.3 (unsub) puede ir en paralelo con 4.2. 4.4 (composer) y 4.7 (list mgmt) son independientes de 4.2-4.3. 4.5 (envío) depende de 4.4 + 4.2 + 4.3. 4.6 (archivo) depende de 4.4 y se beneficia de 4.5.
+- **Stories paralelizables:** 4.1, 4.4, 4.7 pueden arrancarse simultáneamente si se trabaja con más de un foco.
+- **Stories candidatas a sub-split:** 4.5 (envío broadcast) — si la integración con Resend Broadcasts es no-trivial, partir en "envío manual a confirmados" + "scheduled + bounces vía webhook".
+- **Lo que NO entra en Epic 4:** newsletter sponsored builder (Fase 2), segmentación avanzada (Fase 2), A/B testing de subject (Fase 2+), automation/secuencias (out of MVP), newsletter VIP para miembros premium (Fase 2 — connects con Epic 5).
+- **Riesgos abiertos:**
+  - **Deliverability sin dominio propio:** Resend usando `onresend.com` puede tener inbox placement inferior a un dominio verificado. Mitigación: registrar dominio antes del primer envío masivo real (idealmente al cerrar Epic 4), aunque el desarrollo previo no lo requiera. **Si todavía no hay dominio cuando llegamos a Epic 4, considerar registrarlo entonces como prerequisito de la primera campaña real.**
+  - **Tasas de bounce / spam complaints altas en LATAM con proveedores grandes (Gmail, Hotmail):** mantener calidad de lista (doble opt-in ya cubre la mayor parte) y monitorear las primeras campañas.
+
+---
+
 
 
 
