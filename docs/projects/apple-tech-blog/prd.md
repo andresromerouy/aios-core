@@ -39,6 +39,7 @@ Los lectores hispanohablantes interesados en Apple hoy navegan entre medios gene
 | 2026-05-24 | 0.3     | Ajustes del dueño: ingresos 5K/12m + IA solo interna + sin dominio MVP | Morgan |
 | 2026-05-24 | 0.4     | Sección 3 UI Design Goals (visión, screens, branding, plataformas) | Morgan |
 | 2026-05-24 | 0.5     | Sección 4 Technical Assumptions (stack, repo, arquitectura, testing) | Morgan |
+| 2026-05-24 | 0.6     | Sección 5 Epic List (6 épicas secuenciales del MVP)   | Morgan |
 
 ---
 
@@ -338,4 +339,48 @@ La promesa visceral al lector: *"acá puedo enterarme sin ser bombardeado, y pue
 - **Desarrollo (interna):** uso libre de asistentes de código (Cursor, Copilot, Claude Code) — sin obligación de marcar PRs. Toda la responsabilidad de la calidad recae en el dueño/dev al hacer merge.
 
 ---
+
+## 5. Epic List
+
+> _Cada épica entrega un incremento end-to-end deployable y produce valor visible. Las épicas son **secuenciales** — Epic N depende de Epic N-1. Las concerns transversales (logging, tests, a11y, performance) viajan **dentro** de cada épica, no como épica final._
+
+### Visión general (6 épicas)
+
+| # | Épica | Goal (1 línea) | Outcome al cerrar |
+|---|---|---|---|
+| **1** | **Foundation & Canary** | Establecer el proyecto Next.js + Payload + Neon + Vercel con auth + 2FA + CI/CD y publicar una página "canary" navegable. | Repo listo, deploy verde en Vercel, admin con login + 2FA, home con mensaje de prueba en producción. |
+| **2** | **Editorial Core: Posts + Render** | Modelar Posts (Lexical editor, drafts, schedule, publish, versionado) + taxonomía + render público mínimo del home y la página de artículo. | El dueño puede crear, editar y publicar un artículo desde admin y verlo renderizado público en Vercel. |
+| **3** | **Public Site UX & SEO** | Completar navegación pública (categoría, tipo, tag, autor, búsqueda, related, share), modo claro/oscuro, sitemap, RSS, schema.org, OG/Twitter, páginas legales y `/about`. | El blog es navegable end-to-end, indexable por Google, y respeta CWV mínimos. Listo para soft-launch de SEO. |
+| **4** | **Newsletter** | Integrar Resend con flujo de doble opt-in, formularios contextuales (sidebar, footer, fin de artículo), archivo público de newsletters y composición/envío desde admin. | Suscriptores pueden registrarse, confirmar, recibir y consultar archivo. El dueño puede componer y enviar una edición. |
+| **5** | **Monetization Layer** | Slots de AdSense gestionables, sistema de afiliados Amazon con shortlinks + tracking + disclaimer automático, e infraestructura premium pre-instalada (`Plan`/`Subscription`/`Member` + Stripe SDK + `PREMIUM_ENABLED=false`). | Ingresos AdSense + afiliados activos en MVP; premium queda lista para encender en Fase 2 sin migración. |
+| **6** | **Editorial Hardening & Launch Polish** | Página `/etica-editorial`, flag interno `IA-asistido` por artículo, audit log, media library final, dashboard de admin, hardening de seguridad (CSP, rate-limiting), tuning final de performance/a11y/observabilidad y seed de contenido. | Blog listo para soft-launch real, con políticas publicadas, hardening operacional y los flujos críticos cubiertos por tests E2E. |
+
+### Detalle del razonamiento de la secuencia
+
+- **Epic 1** establece la fundación obligatoria del template (infra + CI + auth) y ya despliega algo visible (canary). Sin esto el resto no puede arrancar.
+- **Epic 2** es el corazón del producto: si esto no funciona, no hay blog. Se hace temprano para validar que el stack Next + Payload funciona end-to-end con un caso real (crear, programar, publicar, renderizar).
+- **Epic 3** transforma "tengo un artículo publicado" en "tengo un blog usable y buscable". Es la condición previa para empezar a generar tráfico orgánico — debe estar antes de monetización porque sin tráfico la monetización no rinde.
+- **Epic 4** llega antes que Epic 5 porque la newsletter es **un activo propio** (canal directo con el lector) y refuerza retención desde el primer visitante. Cada día sin newsletter es un día de tráfico que se pierde sin capturar.
+- **Epic 5** entra cuando ya hay tráfico que monetizar y newsletter que sostiene retorno. AdSense además requiere un sitio con contenido publicado antes de aprobar la cuenta — empujarlo más temprano sería contraproducente.
+- **Epic 6** consolida el "todo listo para mostrar al mundo": políticas formales, hardening, observabilidad, seed final. Es deliberadamente lo último porque depende de tener los flujos cerrados para hardenearlos sin reescribir.
+
+### Cross-cutting concerns (presentes en TODAS las épicas, no como épica separada)
+
+| Concern | Tratamiento |
+|---|---|
+| **Logging estructurado** | Setup mínimo en Epic 1; cada épica agrega los eventos clave de su scope. |
+| **Tests (unit + e2e)** | Cada story incluye sus tests críticos; no se difieren a una épica final. |
+| **Accesibilidad WCAG AA** | Aplicada desde Epic 1 (componentes base) y validada por épica. |
+| **Performance (CWV)** | Optimización incremental: Epic 1 setup, Epic 2-3 optimizan render, Epic 6 hace tuning final. |
+| **Seguridad baseline** | HTTPS + 2FA + headers básicos desde Epic 1; CSP estricta + rate-limiting + audit en Epic 6. |
+| **Documentación operativa** | Cada épica deja README/runbook actualizado del scope que tocó. |
+
+### Cortes alternativos considerados (descartados)
+
+- **5 épicas (mergeando Epic 5 + Epic 6):** rechazado — Epic 6 contiene hardening que necesita haber probado monetización con tráfico simulado primero.
+- **7 épicas (separando Premium infra como épica propia):** rechazado — premium en MVP es solo infra/collections, no justifica una épica entera, encaja bien dentro de Epic 5.
+- **Split Epic 2 en "Posts admin" + "Posts render":** rechazado — rompe el principio de vertical slice (cada épica debe ser deployable y entregar valor de punta a punta).
+
+---
+
 
