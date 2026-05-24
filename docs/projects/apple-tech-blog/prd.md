@@ -44,6 +44,7 @@ Los lectores hispanohablantes interesados en Apple hoy navegan entre medios gene
 | 2026-05-24 | 0.8     | Sección 6 — Epic 2 Editorial Core (Posts + Render)    | Morgan |
 | 2026-05-24 | 0.9     | Sección 6 — Epic 3 Public Site UX & SEO               | Morgan |
 | 2026-05-24 | 0.10    | Sección 6 — Epic 4 Newsletter (Resend + doble opt-in) | Morgan |
+| 2026-05-24 | 0.11    | Sección 6 — Epic 5 Monetization (AdSense + afiliados + premium infra) | Morgan |
 
 ---
 
@@ -1015,6 +1016,149 @@ Estos paths se confirman al inicio del Epic 3; cambiarlos después implica traba
   - **Tasas de bounce / spam complaints altas en LATAM con proveedores grandes (Gmail, Hotmail):** mantener calidad de lista (doble opt-in ya cubre la mayor parte) y monitorear las primeras campañas.
 
 ---
+
+### Epic 5 — Monetization Layer
+
+**Expanded Goal:** Activar las capas de monetización del MVP (AdSense y afiliados Amazon) con UX no invasiva y compliance legal, y dejar lista la infraestructura de membresía premium para que su activación pública en Fase 2 sea solo flipping de un feature flag sin migraciones. Al cerrar esta épica el blog tiene los slots de ads renderizados condicionadamente, los enlaces afiliados con tracking y disclaimer automático, y las collections de premium (Plan, Member, Subscription) + Stripe SDK instaladas con `PREMIUM_ENABLED=false`.
+
+#### Story 5.1 — AdSlots collection + configuración global + toggle por artículo
+
+**As a** dueño,
+**I want** definir desde admin qué slots de ads están activos globalmente y poder desactivarlos por artículo específico,
+**so that** controlo la densidad de ads y puedo ofrecer artículos sin ads cuando lo amerite (sponsored, premium, sensible).
+
+**Acceptance Criteria:**
+
+1. Collection `AdSlots` con campos: `key` (text único — `header`, `in-feed-home`, `in-article-top`, `in-article-paragraph-N`, `sidebar`, `footer`), `enabled` (checkbox global), `adsenseSlotId` (text — el ID del slot configurado en AdSense), `description` (text), `targetPositions` (json o text — configuración como "después del párrafo N").
+2. Slots iniciales seedeados: `header`, `in-feed-home`, `in-article-mid` (mitad del artículo), `in-article-end`, `sidebar`, `footer`.
+3. Campo `disableAds` (checkbox) en collection `Posts` (FR20) — sobrescribe slots para ese artículo específico.
+4. Configuración global `ADSENSE_PUBLISHER_ID` en env vars; si está vacía, ningún slot se renderiza (modo dev/preview limpio).
+5. UI de admin para los slots: lista con toggle on/off rápido y edición avanzada con un click.
+6. Audit log de cambios en AdSlots (quién enabled/disabled qué y cuándo).
+
+#### Story 5.2 — Integración AdSense + renderizado de slots en sitio público
+
+**As a** lector,
+**I want** que los ads se carguen sin romper la lectura (sin layout shift, sin interstitials, sin autoplay),
+**so that** sigo disfrutando el sitio aunque tenga ads.
+
+**Acceptance Criteria:**
+
+1. Script de AdSense (`adsbygoogle.js`) cargado **diferido** (`async`, `loading="lazy"`) — no bloquea LCP.
+2. Componente `<AdSlot keyName="..." />` reutilizable que: lee config del slot desde DB cache, valida `enabled=true` y permisos contextuales, renderiza `<ins class="adsbygoogle">` con dimensiones reservadas para evitar CLS.
+3. Slots se reservan con altura mínima conocida (placeholder skeleton sutil) para que el CLS se mantenga <0.05 (NFR1).
+4. **Densidad controlada (asunción confirmada en Sección 3.1):** máximo 2 slots above-the-fold en cualquier vista; in-article cada N párrafos configurable (default N=8).
+5. Slots **NO se renderizan en `/admin`, `/preview/*`, `/api/*`** ni en sub-rutas del newsletter (`/newsletter*`).
+6. Cuando un Post tiene `disableAds=true`, todos los slots dentro del template del artículo se omiten.
+7. Cuando una page de Article tiene `aiAssistedFlag=true`, los ads se mantienen (FR24 dijo "auditable interno", no afecta monetización).
+8. Lighthouse Performance en home y artículo con AdSense activo se mantiene ≥85 móvil (ajuste vs. NFR3 que pide ≥90 sin ads — documentado).
+
+#### Story 5.3 — Cookie consent / CMP para AdSense personalizado
+
+**As a** dueño,
+**I want** un banner de consentimiento que cumpla con GDPR/LOPDGDD cuando AdSense use cookies personalizadas,
+**so that** cumplo con la normativa europea sin perder ingresos por ads no personalizados en otras regiones.
+
+**Acceptance Criteria:**
+
+1. CMP (Cookie Management Platform) integrada — opciones evaluadas: Google Funding Choices (gratis, integrado con AdSense, IAB TCF v2.2-compliant) ← **preferencia MVP**, o Cookiebot/Iubenda (free tier).
+2. Banner se muestra a usuarios desde regiones con consent-requirement (EU/UK/EEA — detección por IP/CMP automática).
+3. Hasta consentimiento, scripts de tracking se bloquean (AdSense puede caer a non-personalized ads — Google Funding Choices lo gestiona automáticamente).
+4. Usuario puede gestionar preferencias en `/preferencias-de-cookies` (o equivalente).
+5. Decisión del usuario persistida y respetada en visitas siguientes.
+6. Consent record auditable (con timestamp + versión de política aceptada).
+7. Plausible (preferido en NFR analytics) no requiere consent por ser cookie-less — confirmado.
+
+#### Story 5.4 — Afiliados Amazon: shortlinks + tracking de clicks
+
+**As a** dueño,
+**I want** insertar enlaces afiliados Amazon en mis artículos a través de un shortlink interno que registre cada click,
+**so that** mantengo URLs limpias en el contenido, puedo cambiar el tag de afiliado centralmente y entiendo qué productos se clickean.
+
+**Acceptance Criteria:**
+
+1. Collection `AffiliateLinks` con campos: `slug` (text único, ej. `iphone-15-pro`), `targetUrl` (URL Amazon completa con `tag=` afiliado), `label` (text — descripción interna), `product` (text opcional — nombre del producto para reporte), `clickCount` (number, auto-increment), `lastClickAt` (date), `disabled` (checkbox), `region` (select: `es`/`mx`/`ar`/`us`/`co`/`cl`/`other` — para diferentes tiendas Amazon).
+2. Endpoint `GET /go/[slug]` que: valida que `disabled=false`, incrementa `clickCount`, setea `lastClickAt=now()`, redirige a `targetUrl` con HTTP 302.
+3. Tag de afiliado regional configurable en env vars (`AMAZON_TAG_ES`, `AMAZON_TAG_MX`, etc.) — el sistema construye el `targetUrl` final con el tag correcto.
+4. UI en el editor Lexical (Story 2.5) para insertar un link como afiliado: selector de afiliado existente o crear nuevo inline; al insertar genera `<a href="/go/[slug]" rel="sponsored nofollow">` con el texto del link.
+5. Logs estructurados de clicks (anonimizados — sin IP ni userAgent persistido en MVP, solo agregados).
+6. Rate-limiting suave en `/go/*` (1000 req/min global) — para detectar bots maliciosos.
+7. Reporte básico en admin: top 10 afiliados por clicks últimos 7/30 días.
+
+#### Story 5.5 — Disclaimer automático en artículos con afiliados
+
+**As a** lector,
+**I want** ver claramente que un artículo contiene enlaces afiliados antes de leerlo,
+**so that** entiendo el modelo de monetización del sitio y la transparencia editorial.
+
+**Acceptance Criteria:**
+
+1. Cuando un Post contiene al menos un enlace afiliado (auto-detectado al guardar, escaneando el body Lexical por links a `/go/*`), se setea internamente `hasAffiliateLinks=true`.
+2. Si `hasAffiliateLinks=true`, el render público de la página de artículo (Story 2.9 / 3.4) inserta automáticamente un disclaimer visible **antes** del cuerpo del artículo (caja con borde sutil, ícono, texto: "Este artículo contiene enlaces afiliados. Si comprás a través de ellos, El Mate Digital recibe una pequeña comisión sin costo adicional para vos. [Ver política completa](/politica-de-afiliados)").
+3. El disclaimer es opcionalmente sobreescribible desde admin con un texto personalizado por artículo (no obligatorio).
+4. El disclaimer aplica los mismos tokens de tema (claro/oscuro) que el resto del artículo.
+5. `<a>` afiliados llevan `rel="sponsored nofollow"` automáticamente.
+6. Test e2e verifica: artículo con link afiliado renderiza disclaimer; artículo sin link no lo renderiza.
+
+#### Story 5.6 — Infraestructura premium: collections Plans/Members/Subscriptions + Stripe SDK + `PREMIUM_ENABLED` flag
+
+**As a** dueño-dev,
+**I want** dejar instalada toda la infraestructura de membresía premium en MVP detrás de un feature flag,
+**so that** en Fase 2 puedo activar el premium sin migraciones de DB ni refactors estructurales — solo flippear el flag y completar el UX público.
+
+**Acceptance Criteria:**
+
+1. Collection `Plans` con: `key` (text único — `monthly`, `annual`), `name`, `priceCents`, `currency`, `interval` (`month`/`year`), `stripePriceId` (text — vacío hasta tener cuenta Stripe live), `benefits` (richText), `active` (checkbox, default false). Seeded con 2 plans placeholder (`monthly` $5/mes, `annual` $50/año — valores tentativos).
+2. Collection `Members` con: `user` (relación a Users), `status` (`pending`/`active`/`paused`/`canceled`/`expired`), `stripeCustomerId`, `currentSubscription` (relación a Subscriptions), `joinedAt`, `metadata`.
+3. Collection `Subscriptions` con: `member` (relación a Members), `plan` (relación a Plans), `stripeSubscriptionId`, `status` (mirror de Stripe — `active`/`past_due`/`canceled`/etc.), `startedAt`, `currentPeriodEnd`, `canceledAt`.
+4. Stripe SDK instalado (`stripe` npm package) y configurado con env vars (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PUBLISHABLE_KEY`).
+5. Feature flag `PREMIUM_ENABLED` (env var, default `false`).
+6. Cuando `PREMIUM_ENABLED=false`:
+   - Las collections existen y son visibles solo a super-admin en admin (no expuestas a roles inferiores).
+   - Las rutas públicas `/premium`, `/checkout`, `/cuenta` NO existen (404 explícito).
+   - Webhooks de Stripe en `/api/stripe/webhook` están registrados pero responden 503 con log.
+   - El helper `requiresMembership(post)` (Story 5.7) devuelve `false` siempre.
+7. Cuando `PREMIUM_ENABLED=true` (sólo en Fase 2): se exponen las rutas, los webhooks procesan eventos reales, el gating activa.
+8. Tests unitarios cubren ambos modos del flag (con/sin premium).
+9. Documentación en README: cómo activar premium en Fase 2 (checklist paso a paso).
+
+#### Story 5.7 — Gating helper `requiresMembership(post)` + tests con flag off
+
+**As a** dueño-dev,
+**I want** un helper centralizado que decide si un post requiere membresía, controlado por el feature flag,
+**so that** en Fase 2 el gating se enciende sin tocar lógica dispersa por el código.
+
+**Acceptance Criteria:**
+
+1. Campo opcional `isPremium` (checkbox, default false) agregado a collection `Posts`.
+2. Helper exportado `requiresMembership(post): boolean` con signature estable.
+3. Cuando `PREMIUM_ENABLED=false`: `requiresMembership` retorna `false` siempre (independiente de `post.isPremium`).
+4. Cuando `PREMIUM_ENABLED=true`: `requiresMembership` retorna `post.isPremium`.
+5. El helper se invoca en el render de Story 2.9 (página de artículo) — en MVP no afecta render (flag off), pero el call site está implementado.
+6. Test unitario cubre ambos modos.
+7. README documenta cómo en Fase 2 se completa el gating real (renderizar paywall + check de Member status).
+
+---
+
+#### Notas operativas de Epic 5
+
+- **Dependencias entre stories:** 5.1 → 5.2 → 5.3 (AdSense pipeline). 5.4 → 5.5 (afiliados). 5.6 → 5.7 (premium infra). Los 3 sub-grupos son **independientes entre sí** — pueden ejecutarse en paralelo.
+- **Stories candidatas a sub-split:**
+  - 5.2 (slots de AdSense) — si los slots in-article (cada N párrafos) son complejos, partir en "header/sidebar/footer/in-feed" + "in-article cada N párrafos".
+  - 5.6 (premium infra) — si supera 5h, partir en "Plans + Stripe SDK" + "Members + Subscriptions + flag".
+- **Lo que NO entra en Epic 5:**
+  - UI pública del premium (página de planes, checkout, customer portal) → Fase 2.
+  - Procesamiento de webhooks reales → Fase 2.
+  - Reportes financieros / dashboard de ingresos consolidado → Fase 2.
+  - Newsletter sponsored marketplace → Fase 2.
+  - Promociones / códigos descuento → Fase 2+.
+- **Riesgos abiertos:**
+  - **AdSense puede rechazar la cuenta** o pedir cambios (contenido suficiente, página de privacidad clara, idioma soportado, etc.). Mitigación: aplicar después de Epic 3 con contenido publicado, y tener `/politica-de-privacidad` real (no placeholder) antes de aplicar.
+  - **Amazon Associates tiene umbral de aprobación** (3 ventas en 180 días). En MVP el trámite se inicia cuando Epic 5 cierra; las primeras semanas pueden estar en período de prueba.
+  - **CMP add-on cost:** Google Funding Choices es gratis; si querés migrar a Iubenda/Cookiebot con más control granular, hay costo mensual a evaluar en Fase 2.
+
+---
+
 
 
 
