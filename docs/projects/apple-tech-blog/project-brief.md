@@ -1,12 +1,12 @@
 # Project Brief: El Mate Digital
 
-> **Documento:** Project Brief v1.1
+> **Documento:** Project Brief v1.2
 > **Autor:** Atlas (Analyst Agent) — AIOS
 > **Fecha:** 2026-05-24
-> **Estado:** Validado por el dueño — listo para handoff a PM
+> **Estado:** Validado por el dueño — handoff a PM en curso (PRD en construcción)
 > **Idioma del producto:** Español (es-LATAM como variante principal, con neutralidad léxica para España)
 > **Nombre de trabajo:** El Mate Digital — identidad LATAM (ritual del mate) + foco Apple/tech
-> **Dominio:** Por definir (candidatos: `elmatedigital.com` / `.tech` / `.lat`)
+> **Dominio:** Diferido — desarrollo MVP en `localhost` + Vercel (`*.vercel.app`). Registro de dominio propio se decide más adelante.
 
 ---
 
@@ -114,7 +114,7 @@ A 24 meses: la referencia indispensable en español para entender qué pasa con 
 ### Business Objectives
 
 - **Alcanzar 50,000 sesiones/mes a los 12 meses** post-lanzamiento (combinando SEO + redes + newsletter).
-- **Generar ≥$1,000 USD/mes en ingresos brutos al mes 12** (mix AdSense + afiliados Amazon + sponsored).
+- **Generar ≥USD 5.000/mes en ingresos brutos al mes 12** como meta (mix AdSense + afiliados Amazon + sponsored + premium si ya está activado), con un **piso de USD 1.000/mes** una vez activadas todas las capas de monetización del MVP. Crecimiento posterior a definir post-Año 1.
 - **Construir lista de newsletter de 5,000 suscriptores activos al mes 12** (open rate ≥30%).
 - **Publicar consistentemente:** ≥4 artículos/semana durante los primeros 6 meses.
 - **Lanzar membresía premium en mes 9** con meta de 100 miembros pagos a los 12 meses.
@@ -308,10 +308,13 @@ El MVP se considera exitoso cuando:
 - ✅ **Comentarios:** diferidos a Fase 2 (mes 6-9) cuando haya audiencia y costos de moderación se justifiquen. En MVP no se exponen.
 - ✅ **Membresía premium:** infra preparada en MVP (collections + Stripe SDK + feature flag), activación pública diferida a Fase 2.
 - ✅ **Cadencia editorial MVP:** ≥4 artículos/semana sostenidos durante 6 meses.
+- ✅ **Ingresos:** meta USD 5K/mes al mes 12; piso USD 1K/mes una vez activadas todas las capas; crecimiento posterior TBD.
+- ✅ **Marcado IA por artículo:** metadato estrictamente interno (auditable solo por el dueño), sin exposición pública en MVP.
+- ✅ **Dominio:** registro postergado. MVP corre en `localhost` (desarrollo) + Vercel (`*.vercel.app` para preview/producción). Elección y registro de dominio se difieren a una decisión posterior, sin bloquear desarrollo.
 
 ### Open Questions
 
-- ¿Dominio final? Validar disponibilidad: `elmatedigital.com` vs `.tech` vs `.lat` vs combinaciones (`mate.tech`, `tomateundigital.com`).
+- ¿Cuándo y cuál dominio? Diferido — evaluar cuando el MVP esté operativo o cerca del soft-launch. Candidatos abiertos.
 - ¿Diseño visual? Branding sprint corto: paleta (apple-blanco + verde-mate + acento cálido), tipografía editorial (¿New York / Söhne / IBM Plex Serif?), logo (mate estilizado + manzana sutil).
 - ¿Se acepta sponsored content desde el inicio o se espera a tener audiencia? Recomendación: esperar a 10k sesiones/mes.
 - ¿Cómo se elige el slug de URLs? (¿Con fecha o sin fecha? Recomendado: sin fecha, evergreen.)

@@ -6,6 +6,7 @@
 > **Estado:** Borrador en elaboración sección por sección
 > **Brief de origen:** `docs/projects/apple-tech-blog/project-brief.md` v1.1
 > **Idioma del producto:** Español-LATAM (léxico neutral compatible con España)
+> **Infra de desarrollo y deploy MVP:** Local (`localhost`) + Vercel (preview + production en `*.vercel.app`). Registro de dominio propio **postergado** — se decide cuándo y cuál más adelante.
 
 ---
 
@@ -18,7 +19,7 @@
 - Operar un panel super-admin propio que permita al dueño controlar el 100% del ciclo editorial (creación, programación, media, SEO, monetización) sin tocar código.
 - Sostener una cadencia editorial mínima de **≥4 artículos/semana** durante los primeros 6 meses.
 - Alcanzar **50.000 sesiones/mes** y **5.000 suscriptores de newsletter activos** al mes 12 post-lanzamiento.
-- Generar **≥USD 1.000/mes de ingresos brutos** al mes 12 combinando AdSense, afiliados Amazon y sponsored.
+- **Ingresos brutos:** alcanzar **≥USD 5.000/mes al mes 12** como meta (mix AdSense + afiliados Amazon + sponsored + premium si ya está activado), con un **piso de USD 1.000/mes** una vez activadas todas las capas de monetización del MVP. Crecimiento más allá de USD 5.000/mes se reevalúa post-Año 1.
 - Dejar lista la **infraestructura de membresía premium en MVP** (data models + Stripe SDK + feature flag) para que su activación pública en Fase 2 (mes 6-9) no requiera migraciones ni refactors.
 - Publicar y respetar una política editorial transparente sobre uso de IA (asistencia sí, generación autónoma no) en página `/etica-editorial`.
 - Mantener costo operativo de infra **< USD 80/mes** hasta los 100k pageviews/mes.
@@ -35,6 +36,7 @@ Los lectores hispanohablantes interesados en Apple hoy navegan entre medios gene
 | ---------- | ------- | ----------------------------------------------------- | ------ |
 | 2026-05-24 | 0.1     | Borrador inicial — Sección 1 Goals & Background       | Morgan |
 | 2026-05-24 | 0.2     | Sección 2 Requirements (FR + NFR)                     | Morgan |
+| 2026-05-24 | 0.3     | Ajustes del dueño: ingresos 5K/12m + IA solo interna + sin dominio MVP | Morgan |
 
 ---
 
@@ -88,7 +90,7 @@ Los lectores hispanohablantes interesados en Apple hoy navegan entre medios gene
 #### Política editorial y transparencia
 
 - **FR23:** La página `/etica-editorial` debe declarar la política de uso de IA (asistencia permitida, generación autónoma no, firma humana obligatoria), la política de afiliados (qué se marca y cómo), la política de correcciones (cómo se publican erratas) y el código de autoría.
-- **FR24:** Cada artículo escrito con asistencia material de IA debe poder marcarse internamente desde admin y ese metadato debe quedar disponible (visible o auditable según se decida en UX).
+- **FR24:** Cada artículo escrito con asistencia material de IA debe poder marcarse mediante un metadato interno desde el admin. Este metadato es **estrictamente interno y auditable solo por el dueño** (no se renderiza como badge ni se expone vía API pública en MVP). Sirve para auditoría editorial interna y para futuras decisiones de transparencia (que podrían materializarse en Fase 2+).
 
 #### Plataforma y UX transversal
 
