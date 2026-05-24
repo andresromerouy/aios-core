@@ -40,6 +40,7 @@ Los lectores hispanohablantes interesados en Apple hoy navegan entre medios gene
 | 2026-05-24 | 0.4     | Sección 3 UI Design Goals (visión, screens, branding, plataformas) | Morgan |
 | 2026-05-24 | 0.5     | Sección 4 Technical Assumptions (stack, repo, arquitectura, testing) | Morgan |
 | 2026-05-24 | 0.6     | Sección 5 Epic List (6 épicas secuenciales del MVP)   | Morgan |
+| 2026-05-24 | 0.7     | Sección 6 — Epic 1 Foundation & Canary (stories + AC) | Morgan |
 
 ---
 
@@ -382,5 +383,161 @@ La promesa visceral al lector: *"acá puedo enterarme sin ser bombardeado, y pue
 - **Split Epic 2 en "Posts admin" + "Posts render":** rechazado — rompe el principio de vertical slice (cada épica debe ser deployable y entregar valor de punta a punta).
 
 ---
+
+## 6. Epic Details
+
+> _Cada épica se documenta con su **goal expandido**, **stories secuenciales** y **acceptance criteria** verificables. Stories son **vertical slices** sized para una sesión enfocada de dev (~2-4h de trabajo focused), no enabler-only ni waterfall. Las stories dentro de una épica respetan dependencias internas. El detalle exhaustivo de cada story se delega al SM cuando armemos los sprints._
+
+### Epic 1 — Foundation & Canary
+
+**Expanded Goal:** Establecer el esqueleto completo del proyecto Next.js + Payload + Neon + Vercel con autenticación + 2FA, pipeline CI/CD y observabilidad mínima, dejando publicada una página "canary" navegable en producción que valide que todo el stack funciona end-to-end. Al cerrar esta épica el dueño puede loguearse al admin con 2FA, ver una página pública, y el repositorio tiene CI verde con preview deploys automáticos.
+
+#### Story 1.1 — Scaffold Next.js 15 + TypeScript estricto + Tailwind
+
+**As a** dueño-dev,
+**I want** un proyecto Next.js 15 con App Router, TypeScript estricto, Tailwind CSS, shadcn/ui y Lucide ya configurados desde cero,
+**so that** tengo una base limpia y consistente sobre la cual construir el resto del producto sin reconfigurar boilerplate.
+
+**Acceptance Criteria:**
+
+1. Repo nuevo creado (nombre tentativo `el-mate-digital`) con README mínimo, `.gitignore`, `LICENSE` y estructura de carpetas inicial.
+2. `package.json` declara Next.js 15.x, React 19.x, TypeScript ≥5.x, Tailwind ≥3.4, ESLint + Prettier.
+3. `tsconfig.json` con `"strict": true`, `"noImplicitAny": true`, paths aliases (`@/*` → `./src/*` o equivalente acordado).
+4. `pnpm dev` (o `npm run dev`) levanta el servidor local en `http://localhost:3000` y muestra la página default de Next.js.
+5. shadcn/ui inicializado (CLI `init`) con el esquema de colores base; al menos un componente base instalado (Button) y renderizable.
+6. Lucide instalado y un ícono renderizable como smoke test.
+7. ESLint + Prettier ejecutables (`pnpm lint`, `pnpm format`) sin errores en el scaffold limpio.
+8. Husky + lint-staged opcional (puede diferirse a una story posterior).
+
+#### Story 1.2 — Instalar y configurar Payload CMS 3.0 embebido en Next.js
+
+**As a** dueño-dev,
+**I want** Payload CMS 3.0 instalado dentro del mismo proyecto Next.js compartiendo el runtime,
+**so that** el admin y el sitio público comparten un solo deployment sin servicios separados.
+
+**Acceptance Criteria:**
+
+1. Payload CMS 3.0 instalado siguiendo la guía oficial de integración con Next.js App Router.
+2. Estructura de carpetas creada: `src/collections/` (vacía aún), `src/payload.config.ts`.
+3. Configuración mínima de Payload sin collections de negocio (sólo `Users` por default).
+4. Ruta `/admin` levanta el panel de Payload (sin datos persistidos aún — se acepta SQLite local o estado en memoria temporal hasta Story 1.3).
+5. Build local (`pnpm build`) compila sin warnings críticos.
+
+#### Story 1.3 — Provisionar PostgreSQL en Neon y conectar Payload
+
+**As a** dueño-dev,
+**I want** una base de datos PostgreSQL gestionada en Neon conectada a Payload vía el adapter oficial,
+**so that** el contenido persiste de forma confiable y puedo branchearla para PRs.
+
+**Acceptance Criteria:**
+
+1. Cuenta Neon creada, proyecto provisionado en una región cercana al público target (us-east o sa-east).
+2. Variable `DATABASE_URL` configurada en `.env.local` (dev) y en Vercel (preview/production) — nunca commiteada.
+3. Payload usa `@payloadcms/db-postgres` (Drizzle) apuntando a Neon.
+4. Migraciones iniciales de Payload corren correctamente (`pnpm payload migrate`).
+5. Usuario admin inicial seedeado vía env var o flujo de primer login.
+6. Se documenta en README el flujo para crear un branch de DB Neon por feature (workflow básico).
+
+#### Story 1.4 — Pipeline CI con GitHub Actions
+
+**As a** dueño-dev,
+**I want** un pipeline de CI que valide lint, typecheck y tests en cada PR,
+**so that** ningún cambio se mergea sin pasar las gates de calidad mínimas.
+
+**Acceptance Criteria:**
+
+1. Workflow `.github/workflows/ci.yml` se ejecuta en `pull_request` y `push` a `main`.
+2. Steps incluyen: install (con cache de `pnpm`), `pnpm lint`, `pnpm typecheck`, `pnpm test` (placeholder Vitest si aún no hay tests reales — devuelve 0 si no encuentra archivos).
+3. CI corre en Node ≥20 LTS.
+4. Status checks de "lint", "typecheck" y "test" exigidos para merge a `main` (branch protection rule).
+5. Documentado en README cómo correr los mismos checks localmente.
+
+#### Story 1.5 — Deploy automático en Vercel con preview por PR
+
+**As a** dueño-dev,
+**I want** que cada PR genere un preview deploy en Vercel automáticamente y que `main` deploye a producción,
+**so that** puedo validar cambios visualmente antes de mergear y publicar en producción sin esfuerzo manual.
+
+**Acceptance Criteria:**
+
+1. Proyecto conectado a Vercel via GitHub integration (no manual CLI deploys).
+2. Variables `DATABASE_URL`, `PAYLOAD_SECRET` y demás secrets configuradas en Vercel para los entornos preview + production.
+3. Cada PR genera un preview URL `*.vercel.app` accesible y comentado en el PR por el bot de Vercel.
+4. Merge a `main` triggerea deploy a producción automáticamente.
+5. URL de producción `*.vercel.app` accesible públicamente con HTTPS forzado.
+6. Documentado en README cómo añadir nuevas environment vars en Vercel.
+
+#### Story 1.6 — Autenticación admin con 2FA TOTP obligatorio
+
+**As a** dueño-administrador,
+**I want** loguearme al panel admin con email + contraseña + un segundo factor TOTP obligatorio,
+**so that** mi acceso al CMS está protegido aunque alguien obtenga mi contraseña.
+
+**Acceptance Criteria:**
+
+1. El usuario admin inicial puede loguearse en `/admin` con email + contraseña.
+2. En el primer login, el sistema obliga a enrolar un dispositivo TOTP (Google Authenticator, 1Password, Authy) mostrando un QR.
+3. Logins subsecuentes piden el código TOTP de 6 dígitos.
+4. Códigos de respaldo (backup codes) generados al enrolar y mostrados una sola vez para guardar.
+5. Posibilidad de regenerar backup codes desde el perfil del usuario.
+6. Rate-limiting en login (máx 5 intentos fallidos por IP / 15 min) implementado.
+7. Sesiones expiran tras 12h de inactividad (configurable).
+
+#### Story 1.7 — Tokens de diseño y modo claro/oscuro base
+
+**As a** lector del sitio,
+**I want** ver una experiencia visual consistente con paleta cálida + tipografía editorial y poder alternar entre modo claro y oscuro,
+**so that** la lectura es cómoda según mis preferencias y la del sistema.
+
+**Acceptance Criteria:**
+
+1. Sistema de tokens CSS implementado vía Tailwind (`--color-bg`, `--color-fg`, `--color-accent`, etc.) referenciados desde la paleta tentativa de la Sección 3.5.
+2. Modo oscuro implementado vía `dark:` de Tailwind, alternable mediante un toggle en el header.
+3. Toggle respeta `prefers-color-scheme` en primera visita y persiste elección del usuario en `localStorage`.
+4. Tipografías cargadas vía `next/font` (Inter + IBM Plex Serif u opciones equivalentes — el branding sprint puede sustituir luego).
+5. Sin FOUC (Flash of Unstyled Content) al cambiar tema.
+6. Tokens documentados en `docs/design-tokens.md` para futuro reuso.
+
+#### Story 1.8 — Página canary pública "El Mate Digital — Próximamente"
+
+**As a** dueño,
+**I want** una página pública con branding mínimo y mensaje de "próximamente" desplegada en producción,
+**so that** valido que toda la cadena (Next + Payload + Neon + Vercel) funciona end-to-end y puedo compartir un URL real con cualquiera.
+
+**Acceptance Criteria:**
+
+1. Página `/` (home) renderiza un hero con título "El Mate Digital", subtítulo y mensaje "Próximamente — un blog Apple para hispanohablantes".
+2. Renderiza correctamente en modo claro y oscuro respetando los tokens de la Story 1.7.
+3. Incluye `<meta>` básicos (title, description) — los advanced Open Graph llegarán en Epic 3.
+4. Lighthouse mobile ≥ 90 en Performance, SEO y Accessibility para esta página (validado en el preview de Vercel).
+5. Página accesible públicamente desde el URL de Vercel de producción con HTTPS.
+6. README del proyecto enlaza al URL canary de producción.
+
+#### Story 1.9 — Observabilidad baseline (logging estructurado + Sentry + Speed Insights)
+
+**As a** dueño-dev,
+**I want** logs estructurados, captura de errores con Sentry y métricas reales de Core Web Vitals desde el día 1,
+**so that** detecto problemas en producción sin depender de reportes manuales y entiendo la performance real de los usuarios.
+
+**Acceptance Criteria:**
+
+1. Logger estructurado configurado (Pino o equivalente) emitiendo JSON en server-side; consumido por Vercel Logs.
+2. Sentry instalado con DSN por env var; captura excepciones server y client.
+3. Un error provocado en dev (botón temporal de "throw") aparece en el dashboard Sentry.
+4. Vercel Speed Insights habilitado en el proyecto; reporta LCP/INP/CLS reales en el dashboard.
+5. Configuración de Sentry tiene sample rate razonable para MVP (100% errores, 10% transactions en preview/prod).
+6. Documentación de cómo añadir nuevos events / breadcrumbs en el código.
+
+---
+
+#### Notas operativas de Epic 1
+
+- **Dependencias entre stories:** 1.1 → 1.2 → 1.3 → (1.4 ∥ 1.5 ∥ 1.6) → (1.7 ∥ 1.8 ∥ 1.9). Las stories paralelas se pueden ejecutar en cualquier orden tras tener DB+Auth.
+- **Stories candidatas a fusionarse si se priorizara velocidad:** 1.4 + 1.5 (CI + Vercel deploy) podrían convertirse en una sola "CI/CD pipeline" — se las dejó separadas para granularidad de scope.
+- **Stories candidatas a partirse si crecen:** 1.6 (2FA) puede sub-partirse en "auth básica" + "TOTP + backup codes" si la implementación se complica más allá de 4h.
+- **Riesgos abiertos de Epic 1:** ningún branding-sprint cerrado todavía — la paleta y tipografías de la Story 1.7 son placeholders, sustituibles cuando el branding cierre sin romper componentes.
+
+---
+
 
 
