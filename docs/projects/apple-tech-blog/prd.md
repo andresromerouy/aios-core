@@ -37,6 +37,7 @@ Los lectores hispanohablantes interesados en Apple hoy navegan entre medios gene
 | 2026-05-24 | 0.1     | Borrador inicial — Sección 1 Goals & Background       | Morgan |
 | 2026-05-24 | 0.2     | Sección 2 Requirements (FR + NFR)                     | Morgan |
 | 2026-05-24 | 0.3     | Ajustes del dueño: ingresos 5K/12m + IA solo interna + sin dominio MVP | Morgan |
+| 2026-05-24 | 0.4     | Sección 3 UI Design Goals (visión, screens, branding, plataformas) | Morgan |
 
 ---
 
@@ -153,5 +154,87 @@ Los lectores hispanohablantes interesados en Apple hoy navegan entre medios gene
 
 - **NFR23:** El flujo "draft → preview → schedule → publish" debe ser ejecutable end-to-end **sin tocar código** durante al menos 30 días consecutivos por parte del dueño como usuario único.
 - **NFR24:** El sistema debe permitir mantener cadencia de **≥4 artículos/semana** sin saturar la UX del admin (UX optimizada para creación rápida de noticias con templates).
+
+---
+
+## 3. User Interface Design Goals
+
+> _Esta sección captura la **visión de producto** UX/UI, no la especificación de diseño. Es el insumo para que un UX Expert / Design Architect arme el sistema visual completo, y para que el Architect dimensione adecuadamente la implementación frontend. Donde se marcan **(asunción)**, el dueño debe validar o redirigir._
+
+### 3.1 Overall UX Vision
+
+**El Mate Digital es, ante todo, un lugar para leer.** La experiencia se construye sobre tres principios:
+
+1. **Lectura como ritual** — no consumo apurado. Tipografía editorial generosa, jerarquía clara, espacios blancos respirables, fricción reducida al mínimo entre el usuario y el contenido. El opuesto explícito del feed infinito ansiógeno.
+2. **Calidez sobre asepsia** — la metáfora del mate guía el tono visual: cálido, humano, regional, sin caer en lo folklórico ni en clichés tropicales. Apple-inspired en limpieza, pero con personalidad propia (la asepsia clínica de Cupertino se contrasta con un acento cálido).
+3. **Densidad informativa controlada** — el lector puede escanear o profundizar a voluntad. Cards de noticia compactas para escaneo rápido; vista de artículo expandida y respirable para lectura comprometida. Los ads se sienten contenidos, no invasores **(asunción: máx. 2 slots above-the-fold + ads in-feed razonables, sin interstitials ni autoplay)**.
+
+La promesa visceral al lector: *"acá puedo enterarme sin ser bombardeado, y puedo profundizar sin tener que abrir 12 pestañas."*
+
+### 3.2 Key Interaction Paradigms
+
+- **Scroll como navegación primaria del artículo:** TOC sticky lateral en desktop / colapsable en móvil. Progress bar sutil arriba.
+- **Búsqueda siempre a un click** desde el header en cualquier vista (`Cmd+K` / atajo de teclado **(asunción)**).
+- **Navegación taxonómica visible**: menú principal por producto Apple (iPhone, Mac, iPad, Watch, Vision, Servicios) + acceso a tipos de contenido (Noticias, Análisis, Tutoriales, Reseñas, Guías).
+- **Suscripción a newsletter contextual y no agresiva**: bloque inline en footer y al final del artículo. Sin popups modales que tapen contenido **(asunción explícita — confirmar)**.
+- **Compartir frictionless**: botones nativos (Web Share API en móvil + fallback a X/WhatsApp/copiar enlace en desktop).
+- **Toggle claro/oscuro** persistente, con respeto inicial del `prefers-color-scheme` del sistema.
+- **Admin con foco en velocidad editorial**: shortcuts de teclado para guardar, programar, publicar; vista de lista con filtros rápidos por estado (draft/scheduled/published); editor con preview en split-view **(asunción)**.
+
+### 3.3 Core Screens and Views
+
+**Sitio público (MVP):**
+
+1. **Home** — hero con artículo destacado editorial + carrusel de destacados secundarios; últimas publicaciones cronológicas; secciones agrupadas por categoría (iPhone, Mac, etc.); CTA newsletter al pie.
+2. **Página de artículo** — la vista crítica del producto. Hero con título, autor, fecha, tiempo de lectura, imagen destacada; cuerpo con tipografía editorial; TOC sticky; bloque "lecturas relacionadas"; bloque "suscribite al newsletter"; share frictionless; comentarios DESACTIVADOS en MVP (Fase 2).
+3. **Página de categoría** — listado paginado/scroll de artículos de una categoría (ej: `/iphone`), con sub-filtro opcional por tipo de contenido.
+4. **Página de tipo de contenido** — listado por tipo transversal (ej: `/analisis`, `/tutoriales`).
+5. **Página de tag** — listado por tag libre.
+6. **Página de autor** — bio + listado de artículos del autor. En MVP probablemente solo una (el dueño), pero la vista existe.
+7. **Resultados de búsqueda** — listado con snippet resaltado del match.
+8. **Newsletter — archivo** — listado de ediciones enviadas + suscripción.
+9. **Página estática editorial:** `/about`, `/etica-editorial`, `/contacto`.
+10. **Páginas legales:** `/politica-de-privacidad`, `/aviso-legal`, `/politica-de-afiliados`.
+11. **404 personalizado** — con voz de marca + sugerencias de lectura.
+
+**Panel admin (Payload — MVP):**
+
+12. **Login** — email + password + 2FA TOTP obligatorio.
+13. **Dashboard** — métricas básicas (artículos del mes, drafts pendientes, próximos programados); accesos directos a "Nuevo artículo" y "Newsletter".
+14. **Lista de artículos** — filtros por estado, categoría, tipo, autor; búsqueda; acciones bulk.
+15. **Editor de artículo** — rich editor (Lexical) con embeds, programación, meta-SEO, imagen destacada, flag interno `IA-asistido`, slots de ads on/off por artículo.
+16. **Preview de draft** — URL con token, sin auth pública.
+17. **Media library** — upload, organización, búsqueda, optimización automática.
+18. **Gestión de taxonomía** — categorías, tipos de contenido, tags.
+19. **Newsletter** — composición + envío + listado de suscriptores + archivo.
+20. **Configuración** — slots de ads globales, feature flag `PREMIUM_ENABLED`, configuración SEO global, integraciones.
+21. **Audit log** — actividad de admin (publicaciones, edits, logins).
+
+### 3.4 Accessibility: **WCAG 2.1 nivel AA**
+
+(Ya formalizado en NFR18.) En MVP se garantiza AA en home, artículo, categoría, formularios de newsletter y páginas legales. Posibles mejoras a AAA en Fase 2 si se justifica con audiencia.
+
+### 3.5 Branding
+
+> _La identidad visual completa requiere un branding sprint corto. Estas son **direcciones tentativas** basadas en la metáfora del mate + el posicionamiento Apple — para validar/redirigir._
+
+- **Paleta tentativa:**
+  - **Modo claro:** fondo papel cálido (off-white tipo `#FAF8F4`), texto carbón suave (`#1B1B1B`), acento principal **verde mate** (`~#3A6B3A` / verde profundo natural, no neón), acento secundario amarillo/dorado cálido (la calabaza del mate).
+  - **Modo oscuro:** fondo carbón profundo (`#121212` / `#1A1A1A`), texto papel suave, acento verde mate claro, acento dorado.
+- **Tipografía tentativa:**
+  - **Titulares:** serif editorial premium (candidatos: New York / Source Serif Pro / IBM Plex Serif / Charter) — transmite autoridad y lectura.
+  - **Cuerpo:** sans-serif neutro y legible (candidatos: Inter / IBM Plex Sans / Söhne).
+  - **Código (tutoriales):** mono limpia (JetBrains Mono / IBM Plex Mono).
+- **Logo (concept abierto):** o bien wordmark editorial con detalle gráfico sutil (ej: una bombilla estilizada como acento sobre la "i"), o bien icono mate+manzana combinado. Pendiente del branding sprint.
+- **Tono y voz visual:** cálido pero profesional, regional sin folklorismo, profesional sin frialdad. Evitar stock-Apple genérico; preferir fotografía propia o ilustración con identidad.
+- **Iconografía:** Lucide icons como base **(ya en el stack)**, con posibilidad de set propio para íconos editoriales claves.
+- **Tratamiento de imágenes:** imagen destacada de artículo a 16:9 o 3:2; soporte para captions; lazy-loading + AVIF/WebP.
+
+### 3.6 Target Device and Platforms: **Web Responsive (móvil-first)**
+
+- **Forma:** Web responsive (single codebase) optimizada **móvil-first** porque se espera ≥70 % del tráfico en móvil (lectura en transporte, breaks, etc.).
+- **Breakpoints tentativos:** móvil (<640px), tablet (640-1024px), desktop (>1024px).
+- **PWA:** opcional en MVP — manifest + service worker básico para añadir a home screen e instant loading. Funcionalidades PWA avanzadas (offline reading, push) se difieren a Fase 2 **(asunción confirmable)**.
+- **Apps nativas:** explícitamente fuera de alcance (PWA bien hecha cubre el caso de uso).
 
 ---
