@@ -1,10 +1,10 @@
 # El Mate Digital — Product Requirements Document (PRD)
 
-> **Documento:** PRD v0.1 (en construcción)
+> **Documento:** PRD v1.0 — listo para handoff a Architect
 > **Autor:** Morgan (PM Agent) — AIOS
 > **Fecha:** 2026-05-24
-> **Estado:** Borrador en elaboración sección por sección
-> **Brief de origen:** `docs/projects/apple-tech-blog/project-brief.md` v1.1
+> **Estado:** ✅ Cerrado y validado por PM Checklist (READY FOR ARCHITECT)
+> **Brief de origen:** `docs/projects/apple-tech-blog/project-brief.md` v1.2
 > **Idioma del producto:** Español-LATAM (léxico neutral compatible con España)
 > **Infra de desarrollo y deploy MVP:** Local (`localhost`) + Vercel (preview + production en `*.vercel.app`). Registro de dominio propio **postergado** — se decide cuándo y cuál más adelante.
 
@@ -46,6 +46,8 @@ Los lectores hispanohablantes interesados en Apple hoy navegan entre medios gene
 | 2026-05-24 | 0.10    | Sección 6 — Epic 4 Newsletter (Resend + doble opt-in) | Morgan |
 | 2026-05-24 | 0.11    | Sección 6 — Epic 5 Monetization (AdSense + afiliados + premium infra) | Morgan |
 | 2026-05-24 | 0.12    | Sección 6 — Epic 6 Editorial Hardening & Launch Polish | Morgan |
+| 2026-05-24 | 0.13    | Sección 7 — Checklist Results + Next Steps + Handoff Prompts | Morgan |
+| 2026-05-24 | 1.0     | PRD v1.0 — cierre y handoff a Architect               | Morgan |
 
 ---
 
@@ -1309,6 +1311,200 @@ Estos paths se confirman al inicio del Epic 3; cambiarlos después implica traba
 - **Definición de "MVP DONE":** cierre de Epic 6 + cumplir el MVP Success Criteria del brief (publicación consistente ≥3/sem por 8 semanas, Lighthouse ≥90, primeras 5K sesiones orgánicas, AdSense aprobada, newsletter ≥500 con OR >35%, admin 100% sin tocar código).
 
 ---
+
+## 7. Checklist Results + Next Steps
+
+### 7.1 PM Checklist Validation Report
+
+> _Validación ejecutada el 2026-05-24 contra `.aios-core/product/checklists/pm-checklist.md` (9 categorías, ~60 ítems)._
+
+#### Executive Summary
+
+- **Completitud del PRD:** ~90 %.
+- **MVP scope:** *Just Right* — 6 épicas, 48 stories, secuencia clara entre fundación y soft-launch.
+- **Readiness para fase de arquitectura:** ✅ **READY FOR ARCHITECT** — con mejoras menores recomendadas pero no bloqueantes.
+- **Gaps críticos:** ninguno bloqueante. Áreas a reforzar: user flows explícitos (Sección 3), diagramas (ER + sitemap), runbook operativo (cubierto en Story 6.6).
+
+#### Category Analysis
+
+| # | Categoría | Status | Notas |
+|---|---|---|---|
+| 1 | Problem Definition & Context | **PASS** (~85 %) | Cubierto en Background + brief v1.2; competitor analysis profundo aún pendiente como tarea del @analyst |
+| 2 | MVP Scope Definition | **PASS** (~95 %) | Out-of-scope explícito por épica; Phase 2 documentada |
+| 3 | User Experience Requirements | **PARTIAL** (~75 %) | Sección 3 sólida; faltan user-flows explícitos (entry/exit/decision points) — el UX Expert los completa |
+| 4 | Functional Requirements | **PASS** (~95 %) | 27 FRs verificables, agrupados por dominio, dependencias documentadas |
+| 5 | Non-Functional Requirements | **PASS** (~95 %) | 24 NFRs cubriendo perf, seguridad, privacidad, a11y, mantenibilidad, observabilidad |
+| 6 | Epic & Story Structure | **PASS** (~95 %) | 6 épicas, 48 stories vertical-slice; Epic 1 cubre setup completo |
+| 7 | Technical Guidance | **PASS** (~90 %) | Stack constraints firmes; areas de riesgo flagueadas; technical debt approach implícito (no explícito) |
+| 8 | Cross-Functional Requirements | **PASS** (~85 %) | Data + integraciones cubiertas; spec exacta de webhooks Stripe/Resend a definir por @architect |
+| 9 | Clarity & Communication | **PARTIAL** (~80 %) | Documentación versionada y consistente; **falta diagramas** (ERD de collections, sitemap de rutas) — se delegan al @architect |
+
+#### Top Issues by Priority
+
+**BLOCKERS:** ninguno.
+
+**HIGH:**
+- Sin **branding sprint** cerrado, los placeholders visuales de Story 1.7 / 3.5 son tentativos. Idealmente paralelizar branding con Epic 1 para no rehacer componentes después.
+- **Iniciar trámite AdSense** durante Epic 3 (con 10-15 artículos publicados) — sin esto, Epic 5 puede quedar bloqueado por aprobación.
+
+**MEDIUM:**
+- **User flows explícitos** (signup newsletter end-to-end, publicación con scheduling, lectura → suscripción → confirmación) son útiles para el UX Expert; el PRD los cubre implícitamente via stories pero un diagrama de flujo agregaría claridad.
+- **ERD de collections** (Posts ↔ Categories/Tags/Authors/Media + Plans ↔ Members ↔ Subscriptions + AdSlots + Subscribers + Newsletters + AffiliateLinks + StaticPages + AuditLogs) → tarea del @architect en architecture.md.
+- **Sitemap de rutas** (`/`, `/articulo/[slug]`, `/categoria/[slug]`, etc.) → idem @architect.
+
+**LOW:**
+- **Política de technical debt** explícita (cuándo aceptar deuda, cómo registrarla) — no es bloqueante en MVP de 1 dev.
+- **Communication plan formal con stakeholders** — innecesario en MVP de fundador único, queda implícito vía iteración 1-1.
+
+#### MVP Scope Assessment
+
+- **Features candidatas a cortar si el cronograma aprieta:** ninguna crítica; el PRD ya es relativamente lean. Si hubiera que cortar, lo primero sería **Story 3.5 (búsqueda)** — un blog joven se descubre vía Google, no vía búsqueda interna. Aceptable diferir.
+- **Features faltantes esenciales:** ninguna detectada.
+- **Complexity concerns:** Lexical editor + embeds (Story 2.5), CSP estricta + AdSense + CMP coexistiendo (Story 6.3 + 5.3), gating helper con flag (Story 5.7).
+- **Timeline realista:** brief plantea 8-12 semanas part-time. Las 48 stories son ejecutables en ese rango por un dueño-dev disciplinado; la cadencia editorial (≥4 artículos/semana, Story 6.5) corre en paralelo y depende de capacidad humana del editor, no del dev.
+
+#### Technical Readiness
+
+- **Claridad de constraints técnicos:** alta — Section 4 los cierra explícitamente.
+- **Riesgos técnicos identificados:**
+  - Cloudinary plugin Payload 3.0 — verificar compatibilidad temprano.
+  - X/Twitter embeds — fragilidad histórica; mitigación con fallback ya documentada.
+  - CSP + AdSense — tuning iterativo, no falla pero requiere ajustes.
+  - Deliverability de Resend sin dominio propio — flagueado.
+- **Areas requiring architect investigation:**
+  - Decisión final Cloudinary vs Vercel Blob.
+  - Estrategia exacta de cron jobs (Vercel Cron vs QStash).
+  - Esquema de cache + ISR + on-demand revalidation por entity.
+  - Spec detallada de webhooks Stripe (para activar Fase 2 sin re-trabajo).
+  - Schema completo de Postgres + indexes (especialmente para FTS).
+
+#### Recommendations
+
+1. **Iniciar branding sprint** en paralelo con Epic 1 (no bloquea pero acelera resultado final).
+2. **Aplicar a AdSense** apenas Epic 3 esté en producción con 10-15 artículos (recordatorio operativo).
+3. **El @architect debe producir architecture.md con:** ERD de collections, sitemap de rutas, decisiones puntuales sobre Cloudinary y Cron, schema SQL y plan de indexes, secuencia detallada de webhooks Stripe para Fase 2.
+4. **El @sm (SM) debe transformar las 48 stories del PRD en historias formales** con sizing relativo (story points) y ordenarlas en sprints de 1-2 semanas.
+5. **Considerar pedir competitor analysis profundo** (`*create-competitor-analysis` del @analyst) si todavía no se ejecutó — refuerza la sección 1 del PRD post-handoff.
+
+#### Final Decision
+
+✅ **READY FOR ARCHITECT.** El PRD está completo, internamente consistente, y suficientemente preciso para que el @architect produzca un documento de arquitectura sin re-litigar decisiones de producto.
+
+---
+
+### 7.2 Next Steps
+
+#### Immediate Actions (post-PRD)
+
+1. **Handoff a @architect (Aria)** — producir `docs/projects/apple-tech-blog/architecture.md` (ERD, sitemap, schema SQL, decisiones de Cloudinary/Cron, spec detallada de integraciones).
+2. **Handoff a @sm (River)** post-architecture — descomponer las 48 stories del PRD en historias formales sized y secuenciadas por sprint.
+3. **Iniciar branding sprint** (paralelo) para destrabar identidad visual antes de que Epic 1 cierre Story 1.7.
+4. **Considerar `*create-competitor-analysis`** del @analyst si todavía no se ejecutó.
+5. **Crear repo nuevo `el-mate-digital`** (separado de `aios-core`) cuando el @architect confirme estructura final.
+6. **Plan editorial pre-launch:** empezar a redactar drafts de los 10-15 artículos seed (Story 6.5) en paralelo a Epic 1-3.
+
+#### Dependencies Between Workstreams
+
+| Stream | Bloquea a | Bloqueado por |
+|---|---|---|
+| @architect | @sm, @dev, @ux-design-expert | PRD (✅ listo) |
+| @ux-design-expert | Epic 1 Story 1.7 (tokens) | PRD (✅), idealmente architecture |
+| Branding sprint | Story 1.7 + 3.5 | Owner decision |
+| AdSense application | Epic 5 inicio | Epic 3 cerrado + 10-15 artículos publicados + `/politica-de-privacidad` real (Story 6.1) |
+| Domain registration | Newsletter campaña real (post Epic 4) | Owner decision |
+
+---
+
+### 7.3 UX Expert Prompt
+
+> _Para iniciar el modo "Create UX Architecture" / "Design Architect" usando este PRD como insumo._
+
+```
+@ux-design-expert — modo "Create UX Architecture" para El Mate Digital.
+
+Insumos:
+- PRD: docs/projects/apple-tech-blog/prd.md (este documento, v1.0)
+- Brief: docs/projects/apple-tech-blog/project-brief.md v1.2
+
+Foco prioritario para tu output (frontend-spec.md o equivalente):
+1. User flows explícitos end-to-end de los flujos críticos:
+   - Suscripción newsletter (form → confirm → archive)
+   - Publicación de artículo (admin: draft → schedule → publish)
+   - Lectura (home → artículo → related → suscripción)
+   - Click afiliado (artículo → /go/[slug] → Amazon)
+2. Wireframes/mockups de baja fidelidad para los 21 screens
+   listados en Sección 3.3 del PRD.
+3. Sistema de tokens de diseño completo (paleta, tipografía, espaciado,
+   elevaciones) basado en la dirección tentativa de Sección 3.5 —
+   alineado con el branding sprint si ya cerró.
+4. Specs de componentes core (Card, ArticleHeader, NewsletterSignup,
+   AdSlot placeholder, TOC sticky, Header/Footer).
+5. Validación WCAG AA en mockups (focus states, contraste, navegación
+   por teclado).
+
+Constraints firmes (no re-litigar):
+- Web responsive móvil-first
+- Modo claro + oscuro
+- Metáfora del mate: lectura como ritual, calidez sobre asepsia
+- Comentarios fuera de MVP
+- Premium no expuesto públicamente en MVP
+```
+
+---
+
+### 7.4 Architect Prompt
+
+> _Para iniciar el modo "Create Architecture" usando este PRD como insumo._
+
+```
+@architect (Aria) — modo "Create Architecture" para El Mate Digital.
+
+Insumos:
+- PRD: docs/projects/apple-tech-blog/prd.md (este documento, v1.0)
+- Brief: docs/projects/apple-tech-blog/project-brief.md v1.2
+
+Objetivo: producir docs/projects/apple-tech-blog/architecture.md.
+
+Decisiones del PRD que son CONSTRAINTS (no re-litigar):
+- Stack: Next.js 15 App Router + TypeScript estricto + Payload CMS 3.0
+  embedded + PostgreSQL Neon + Vercel + Cloudinary + Resend + Stripe SDK.
+- Repo: nuevo, separado de aios-core (sugerencia: el-mate-digital).
+- Arquitectura: monolito modular, no microservicios.
+- Testing: Vitest unit + Playwright e2e selectivo.
+- Premium: collections + SDK + flag PREMIUM_ENABLED=false desde MVP.
+- Comentarios: fuera de MVP (Fase 2).
+- Dominio: postergado, MVP en *.vercel.app.
+
+Foco prioritario para tu output:
+1. ERD completo de collections: Posts, Categories, ContentTypes, Tags,
+   Authors, Media, StaticPages, Subscribers, Newsletters, AdSlots,
+   AffiliateLinks, Plans, Members, Subscriptions, AuditLogs, Users.
+   Incluir relaciones y constraints.
+2. Sitemap de rutas (público + admin + API) con métodos y respuestas.
+3. Schema SQL inicial + plan de indexes (especialmente para FTS de
+   Posts en Story 3.5 y para AffiliateLinks/Subscribers).
+4. Decisión definitiva: Cloudinary vs Vercel Blob (con criterios
+   técnicos y de costo).
+5. Estrategia de cron jobs (Vercel Cron vs QStash) para Story 2.6 y 4.5.
+6. Estrategia de cache + ISR + on-demand revalidate por entidad.
+7. Spec detallada de webhooks Stripe para que la activación Fase 2 no
+   requiera re-trabajo.
+8. Estrategia de CSP estricta + AdSense + CMP coexistiendo (NFR10 +
+   Story 5.3 + Story 6.3).
+9. Plan de seeds (categorías, tipos, autor inicial, slots, plans,
+   static pages).
+10. Riesgos técnicos a investigar pre-Epic 1: compatibilidad Cloudinary
+    plugin Payload 3.0, fragilidad embeds X/Twitter.
+
+Producto esperado: docs/projects/apple-tech-blog/architecture.md
+con la profundidad necesaria para que el @sm produzca stories
+formales y el @dev ejecute Epic 1 sin ambigüedad técnica.
+```
+
+---
+
+*— Morgan, planejando o futuro 📊*
+
 
 
 
